@@ -1,0 +1,122 @@
+2026-11-24 19:53:38.906 ERROR [main] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: create OpenXR session failed with OpenXR result code -38
+	at org.example.Main.check(Main.java:201)
+	at org.example.Main.runSessionLifecycle(Main.java:138)
+	at org.example.Main.initializeAndPrint(Main.java:119)
+	at org.example.Main.main(Main.java:40)
+2026-11-24 19:53:48.027 ERROR [main] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: create OpenXR session failed with OpenXR result code -38
+	at org.example.Main.check(Main.java:201)
+	at org.example.Main.runSessionLifecycle(Main.java:138)
+	at org.example.Main.initializeAndPrint(Main.java:119)
+	at org.example.Main.main(Main.java:40)
+2026-11-24 20:55:38.928 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:432)
+	at org.example.Main.runSessionLifecycle(Main.java:179)
+	at org.example.Main.initializeAndPrint(Main.java:139)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 20:58:25.239 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:471)
+	at org.example.Main.runSessionLifecycle(Main.java:182)
+	at org.example.Main.initializeAndPrint(Main.java:142)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 20:59:26.615 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:475)
+	at org.example.Main.runSessionLifecycle(Main.java:182)
+	at org.example.Main.initializeAndPrint(Main.java:142)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:00:20.303 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:474)
+	at org.example.Main.runSessionLifecycle(Main.java:185)
+	at org.example.Main.initializeAndPrint(Main.java:142)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:01:22.211 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:485)
+	at org.example.Main.runSessionLifecycle(Main.java:192)
+	at org.example.Main.initializeAndPrint(Main.java:145)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:02:16.463 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:496)
+	at org.example.Main.runSessionLifecycle(Main.java:203)
+	at org.example.Main.initializeAndPrint(Main.java:145)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:03:13.178 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: count Vulkan devices failed with OpenXR result code -3
+	at org.example.Main.check(Main.java:506)
+	at org.example.Main.runSessionLifecycle(Main.java:213)
+	at org.example.Main.initializeAndPrint(Main.java:145)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:04:33.816 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:504)
+	at org.example.Main.runSessionLifecycle(Main.java:216)
+	at org.example.Main.initializeAndPrint(Main.java:145)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:05:38.154 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:509)
+	at org.example.Main.runSessionLifecycle(Main.java:221)
+	at org.example.Main.initializeAndPrint(Main.java:145)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:12:16.483 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: select OpenXR Vulkan device failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:588)
+	at org.example.Main.runSessionLifecycle(Main.java:231)
+	at org.example.Main.initializeAndPrint(Main.java:148)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
+2026-11-24 21:21:17.658 ERROR [org.example.Main.main()] org.example.Main - OpenXR initialization failed
+org.example.Main$OpenXrException: create runtime-bound Vulkan instance failed with OpenXR result code -2
+	at org.example.Main.check(Main.java:613)
+	at org.example.Main.runSessionLifecycle(Main.java:222)
+	at org.example.Main.initializeAndPrint(Main.java:157)
+	at org.example.Main.main(Main.java:61)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:375)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:364)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:286)
+	at java.base/java.lang.Thread.run(Thread.java:1474)
