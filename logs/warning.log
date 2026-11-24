@@ -1,3 +1,0 @@
-2026-11-24 19:53:38.303 WARN  [main] org.example.Main - Runtime supports Vulkan binding, but this bootstrap has no Vulkan device binding yet; session creation may fail
-2026-11-24 19:53:47.590 WARN  [main] org.example.Main - Runtime supports Vulkan binding, but this bootstrap has no Vulkan device binding yet; session creation may fail
-2026-11-24 21:03:12.994 WARN  [org.example.Main.main()] org.example.Main - Runtime device selection returned -2; using the first Vulkan device exposed by the loader
