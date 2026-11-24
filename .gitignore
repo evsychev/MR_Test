@@ -1,0 +1,34 @@
+# Maven and Java build output
+target/
+build/
+out/
+
+# IntelliJ IDEA and other IDE metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Runtime logs and JVM crash reports
+/logs/
+*.log
+hs_err_pid*.log
+replay_pid*.log
+core
+core.*
+
+# Local Codex and proxy tooling state
+.proxyai/
+.codex/
+
+# Local environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
