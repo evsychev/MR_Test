@@ -43,7 +43,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private final int pixelWidth;
     private final int pixelHeight;
     private final int logicalWidth;
-    private final List<TreeNode> roots;
+    private final List<TechnicalObjectTreeDataSource.TreeNode> roots;
     private final BufferedImage image;
     private final ByteBuffer rgbaPixels;
     private final Set<String> expanded = new HashSet<>();
@@ -63,12 +63,12 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private boolean closed;
 
     TechnicalObjectTreeUI(int pixelWidth, int pixelHeight) {
-        TreeData treeData = loadTree();
+        TechnicalObjectTreeDataSource.TreeData treeData = TechnicalObjectTreeDataSource.loadTree();
         this.pixelWidth = pixelWidth;
         this.pixelHeight = pixelHeight;
-        roots = treeData.roots;
-        expanded.addAll(treeData.expandedIds);
-        selectedId = treeData.selectedId;
+        roots = treeData.roots();
+        expanded.addAll(treeData.expandedIds());
+        selectedId = treeData.selectedId();
         logicalWidth = Math.max(1, Math.round(pixelHeight
                 * AnchoredWindow.DEFAULT_WIDTH_METERS / AnchoredWindow.EXPANDED_HEIGHT_METERS));
         image = new BufferedImage(pixelWidth, pixelHeight, BufferedImage.TYPE_INT_ARGB_PRE);
@@ -421,7 +421,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private void drawTree(Graphics2D graphics) {
         visibleRows.clear();
         String query = searchText.strip().toLowerCase(Locale.ROOT);
-        for (TreeNode root : roots) {
+        for (TechnicalObjectTreeDataSource.TreeNode root : roots) {
             appendVisibleRows(root, 0, query);
         }
 
@@ -452,7 +452,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         }
     }
 
-    private void appendVisibleRows(TreeNode node, int depth, String query) {
+    private void appendVisibleRows(TechnicalObjectTreeDataSource.TreeNode node, int depth, String query) {
         boolean descendantMatches = containsMatch(node, query);
         if (!descendantMatches) {
             return;
@@ -460,17 +460,17 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         boolean isExpanded = query.isEmpty() ? expanded.contains(node.id) : true;
         visibleRows.add(new TreeRow(node, depth, !node.children.isEmpty(), isExpanded));
         if (isExpanded) {
-            for (TreeNode child : node.children) {
+            for (TechnicalObjectTreeDataSource.TreeNode child : node.children) {
                 appendVisibleRows(child, depth + 1, query);
             }
         }
     }
 
-    private boolean containsMatch(TreeNode node, String query) {
+    private boolean containsMatch(TechnicalObjectTreeDataSource.TreeNode node, String query) {
         if (query.isEmpty() || node.label.toLowerCase(Locale.ROOT).contains(query)) {
             return true;
         }
-        for (TreeNode child : node.children) {
+        for (TechnicalObjectTreeDataSource.TreeNode child : node.children) {
             if (containsMatch(child, query)) {
                 return true;
             }
@@ -515,7 +515,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         graphics.drawLine(x + 16, centerY + 1, x + 16, centerY + 8);
     }
 
-    private void drawNodeIcon(Graphics2D graphics, IconKind kind, int centerX, int centerY) {
+    private void drawNodeIcon(Graphics2D graphics, TechnicalObjectTreeDataSource.IconKind kind, int centerX, int centerY) {
         graphics.setColor(new Color(224, 232, 240, 225));
         graphics.setStroke(new BasicStroke(2.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         int left = centerX - 15;
@@ -656,154 +656,12 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         return x >= left && x <= left + width && y >= top && y <= top + height;
     }
 
-    private static TreeData loadTree() {
-        var resource = TechnicalObjectTreeUI.class.getResourceAsStream("/content/technical-objects.csv");
-        if (resource == null) {
-            throw new IllegalStateException("Missing tree data resource: /content/technical-objects.csv");
-        }
-
-        Map<String, NodeBuilder> nodes = new LinkedHashMap<>();
-        List<String> rootIds = new ArrayList<>();
-        Set<String> expandedIds = new HashSet<>();
-        String selectedId = null;
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource, StandardCharsets.UTF_8))) {
-            String header = reader.readLine();
-            if (header == null || !header.replace("\uFEFF", "").equals("id,parent_id,type,label,expanded,selected")) {
-                throw new IllegalStateException("Unexpected CSV header in technical object data");
-            }
-
-            String line;
-            int lineNumber = 1;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                if (line.isBlank()) {
-                    continue;
-                }
-                List<String> fields = parseCsvLine(line, lineNumber);
-                if (fields.size() != 6) {
-                    throw new IllegalStateException("Expected 6 CSV fields on line " + lineNumber);
-                }
-
-                String id = fields.get(0).strip();
-                String parentId = fields.get(1).strip();
-                String label = fields.get(3).strip();
-                if (id.isEmpty() || label.isEmpty()) {
-                    throw new IllegalStateException("Object id and label are required on line " + lineNumber);
-                }
-                IconKind kind;
-                try {
-                    kind = IconKind.valueOf(fields.get(2).strip().toUpperCase(Locale.ROOT));
-                } catch (IllegalArgumentException exception) {
-                    throw new IllegalStateException("Unknown object type on line " + lineNumber, exception);
-                }
-                NodeBuilder node = new NodeBuilder(id, label, kind);
-                if (nodes.putIfAbsent(id, node) != null) {
-                    throw new IllegalStateException("Duplicate object id on line " + lineNumber + ": " + id);
-                }
-                if (Boolean.parseBoolean(fields.get(4).strip())) {
-                    expandedIds.add(id);
-                }
-                if (Boolean.parseBoolean(fields.get(5).strip())) {
-                    if (selectedId != null) {
-                        throw new IllegalStateException("Only one CSV row can be selected");
-                    }
-                    selectedId = id;
-                }
-                if (parentId.isEmpty()) {
-                    rootIds.add(id);
-                } else {
-                    NodeBuilder parent = nodes.get(parentId);
-                    if (parent == null) {
-                        throw new IllegalStateException("Parent must precede child on line " + lineNumber
-                                + ": " + parentId);
-                    }
-                    parent.children.add(id);
-                }
-            }
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not read technical object CSV data", exception);
-        }
-
-        if (rootIds.isEmpty()) {
-            throw new IllegalStateException("Technical object CSV contains no root objects");
-        }
-        if (selectedId == null) {
-            selectedId = rootIds.getFirst();
-        }
-        List<TreeNode> roots = rootIds.stream().map(id -> buildNode(id, nodes)).toList();
-        return new TreeData(roots, expandedIds, selectedId);
-    }
-
-    private static TreeNode buildNode(String id, Map<String, NodeBuilder> nodes) {
-        NodeBuilder node = nodes.get(id);
-        List<TreeNode> children = node.children.stream().map(childId -> buildNode(childId, nodes)).toList();
-        return new TreeNode(node.id, node.label, node.kind, children);
-    }
-
-    private static List<String> parseCsvLine(String line, int lineNumber) {
-        List<String> fields = new ArrayList<>();
-        StringBuilder field = new StringBuilder();
-        boolean quoted = false;
-        for (int index = 0; index < line.length(); index++) {
-            char character = line.charAt(index);
-            if (character == '"') {
-                if (quoted && index + 1 < line.length() && line.charAt(index + 1) == '"') {
-                    field.append('"');
-                    index++;
-                } else {
-                    quoted = !quoted;
-                }
-            } else if (character == ',' && !quoted) {
-                fields.add(field.toString());
-                field.setLength(0);
-            } else {
-                field.append(character);
-            }
-        }
-        if (quoted) {
-            throw new IllegalStateException("Unclosed quoted field on CSV line " + lineNumber);
-        }
-        fields.add(field.toString());
-        return fields;
-    }
-
     @Override
     public void close() {
         MemoryUtil.memFree(rgbaPixels);
     }
 
-    private enum IconKind {
-        FACTORY,
-        BUILDING,
-        EQUIPMENT,
-        MACHINE,
-        THERMAL,
-        POWER,
-        WAREHOUSE,
-        SERVER,
-        GRID
-    }
-
-    private record TreeNode(String id, String label, IconKind kind, List<TreeNode> children) {
-    }
-
-    private static final class NodeBuilder {
-        private final String id;
-        private final String label;
-        private final IconKind kind;
-        private final List<String> children = new ArrayList<>();
-
-        private NodeBuilder(String id, String label, IconKind kind) {
-            this.id = id;
-            this.label = label;
-            this.kind = kind;
-        }
-    }
-
-    private record TreeData(List<TreeNode> roots, Set<String> expandedIds, String selectedId) {
-    }
-
-    private record TreeRow(TreeNode node, int depth, boolean hasChildren, boolean expanded) {
+    private record TreeRow(TechnicalObjectTreeDataSource.TreeNode node, int depth, boolean hasChildren, boolean expanded) {
     }
 
     private record KeyboardKey(String action, int x, int y, int width, int height) {
