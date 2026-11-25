@@ -15,7 +15,7 @@ const vec2 PANEL_VERTICES[6] = vec2[6](
 
 void main() {
     vec2 vertex = PANEL_VERTICES[gl_VertexIndex];
-    panelCoordinate = vertex;
+    panelCoordinate = vec2(vertex.x, 1.0 - vertex.y);
     vec2 clipPosition = vec2(-1.0 + vertex.x * 2.0,
             -1.0 + vertex.y * 2.0);
     gl_Position = vec4(clipPosition, 0.5, 1.0);

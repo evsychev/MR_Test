@@ -5,11 +5,13 @@ import org.joml.Vector3f;
 import org.lwjgl.openxr.XrView;
 
 final class AnchoredWindow {
-    static final float WIDTH_METERS = 0.56f;
-    static final float EXPANDED_HEIGHT_METERS = 0.38f;
+    static final float WIDTH_METERS = 0.39f;
+    static final float EXPANDED_HEIGHT_METERS = 0.70f;
     static final float MINIMIZED_HEIGHT_METERS = 0.12f;
 
-    private static final float ANCHOR_DISTANCE_METERS = 2.0f;
+    private static final float ANCHOR_DISTANCE_METERS = 1.55f;
+    private static final float ANCHOR_LEFT_OFFSET_METERS = -0.85f;
+    private static final float ANCHOR_TOP_OFFSET_METERS = 0.92f;
     private static final float BUTTON_MIN_X_METERS = WIDTH_METERS - 0.10f;
     private static final float BUTTON_MAX_X_METERS = WIDTH_METERS - 0.02f;
     private static final float BUTTON_TOP_METERS = -0.012f;
@@ -41,7 +43,8 @@ final class AnchoredWindow {
             headPosition.add(secondPosition.x(), secondPosition.y(), secondPosition.z()).mul(0.5f);
         }
 
-        Vector3f topLeftOffset = new Vector3f(-0.60f, 0.35f, -ANCHOR_DISTANCE_METERS)
+        Vector3f topLeftOffset = new Vector3f(ANCHOR_LEFT_OFFSET_METERS,
+                ANCHOR_TOP_OFFSET_METERS, -ANCHOR_DISTANCE_METERS)
                 .rotate(anchorOrientation);
         anchorPosition.set(headPosition).add(topLeftOffset);
         initialized = true;
