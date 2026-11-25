@@ -1,6 +1,7 @@
 package org.example;
 
 import org.joml.Quaternionf;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.lwjgl.openxr.XrView;
 
@@ -12,19 +13,13 @@ final class AnchoredWindow {
     private static final float ANCHOR_DISTANCE_METERS = 1.55f;
     private static final float ANCHOR_LEFT_OFFSET_METERS = -0.85f;
     private static final float ANCHOR_TOP_OFFSET_METERS = 0.92f;
-    private static final float BUTTON_MIN_X_METERS = WIDTH_METERS - 0.10f;
-    private static final float BUTTON_MAX_X_METERS = WIDTH_METERS - 0.02f;
-    private static final float BUTTON_TOP_METERS = -0.012f;
-    private static final float BUTTON_BOTTOM_METERS = -0.085f;
     private static final float RAY_LENGTH_METERS = 4.0f;
 
     private final Vector3f anchorPosition = new Vector3f();
     private final Quaternionf anchorOrientation = new Quaternionf();
     private boolean initialized;
     private boolean minimized;
-    private boolean buttonHovered;
-    private boolean previousLeftSelect;
-    private boolean previousRightSelect;
+    private boolean closed;
 
     void updateFromViews(XrView.Buffer views) {
         if (views.remaining() == 0) {
@@ -44,33 +39,39 @@ final class AnchoredWindow {
         }
 
         Vector3f topLeftOffset = new Vector3f(ANCHOR_LEFT_OFFSET_METERS,
-                ANCHOR_TOP_OFFSET_METERS, -ANCHOR_DISTANCE_METERS)
-                .rotate(anchorOrientation);
+                ANCHOR_TOP_OFFSET_METERS, -ANCHOR_DISTANCE_METERS).rotate(anchorOrientation);
         anchorPosition.set(headPosition).add(topLeftOffset);
         initialized = true;
     }
 
-    void updateInteraction(boolean leftSelect, Vector3f leftPosition, Quaternionf leftOrientation,
-                           boolean leftPoseValid, boolean rightSelect, Vector3f rightPosition,
-                           Quaternionf rightOrientation, boolean rightPoseValid) {
-        if (!initialized) {
-            previousLeftSelect = leftSelect;
-            previousRightSelect = rightSelect;
-            return;
+    boolean intersectRay(Vector3f rayOrigin, Quaternionf rayOrientation, Vector2f panelPoint) {
+        if (!initialized || closed) {
+            return false;
         }
 
-        boolean leftButtonHit = leftPoseValid && rayHitsToggleButton(leftPosition, leftOrientation);
-        boolean rightButtonHit = rightPoseValid && rayHitsToggleButton(rightPosition, rightOrientation);
-        buttonHovered = leftButtonHit || rightButtonHit;
+        Quaternionf inverseAnchorOrientation = new Quaternionf(anchorOrientation).conjugate();
+        Vector3f localOrigin = new Vector3f(rayOrigin).sub(anchorPosition).rotate(inverseAnchorOrientation);
+        Vector3f rayDirection = new Vector3f(0.0f, 0.0f, -1.0f)
+                .rotate(rayOrientation)
+                .rotate(inverseAnchorOrientation);
 
-        boolean leftClick = leftSelect && !previousLeftSelect && leftButtonHit;
-        boolean rightClick = rightSelect && !previousRightSelect && rightButtonHit;
-        if (leftClick || rightClick) {
-            minimized = !minimized;
+        if (Math.abs(rayDirection.z) < 0.0001f) {
+            return false;
         }
 
-        previousLeftSelect = leftSelect;
-        previousRightSelect = rightSelect;
+        float distance = -localOrigin.z / rayDirection.z;
+        if (distance < 0.0f || distance > RAY_LENGTH_METERS) {
+            return false;
+        }
+
+        float x = localOrigin.x + rayDirection.x * distance;
+        float yFromTop = -(localOrigin.y + rayDirection.y * distance);
+        if (x < 0.0f || x > WIDTH_METERS || yFromTop < 0.0f || yFromTop > heightMeters()) {
+            return false;
+        }
+
+        panelPoint.set(x, yFromTop);
+        return true;
     }
 
     Vector3f quadCenterPosition() {
@@ -95,29 +96,15 @@ final class AnchoredWindow {
         return minimized;
     }
 
-    boolean buttonHovered() {
-        return buttonHovered;
+    void toggleMinimized() {
+        minimized = !minimized;
     }
 
-    private boolean rayHitsToggleButton(Vector3f rayOrigin, Quaternionf rayOrientation) {
-        Quaternionf inverseAnchorOrientation = new Quaternionf(anchorOrientation).conjugate();
-        Vector3f localOrigin = new Vector3f(rayOrigin).sub(anchorPosition).rotate(inverseAnchorOrientation);
-        Vector3f rayDirection = new Vector3f(0.0f, 0.0f, -1.0f)
-                .rotate(rayOrientation)
-                .rotate(inverseAnchorOrientation);
+    boolean closed() {
+        return closed;
+    }
 
-        if (Math.abs(rayDirection.z) < 0.0001f) {
-            return false;
-        }
-
-        float distance = -localOrigin.z / rayDirection.z;
-        if (distance < 0.0f || distance > RAY_LENGTH_METERS) {
-            return false;
-        }
-
-        float localX = localOrigin.x + rayDirection.x * distance;
-        float localY = localOrigin.y + rayDirection.y * distance;
-        return localX >= BUTTON_MIN_X_METERS && localX <= BUTTON_MAX_X_METERS
-                && localY <= BUTTON_TOP_METERS && localY >= BUTTON_BOTTOM_METERS;
+    void closeWindow() {
+        closed = true;
     }
 }
