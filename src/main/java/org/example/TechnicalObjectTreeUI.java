@@ -1,5 +1,9 @@
 package org.example;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -11,8 +15,10 @@ import java.awt.image.DataBufferInt;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.joml.Vector2f;
@@ -31,21 +37,19 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private static final Color SECONDARY = new Color(181, 190, 201, 225);
     private static final Color ACCENT = new Color(91, 166, 245, 240);
 
-    private static final List<TreeNode> ROOTS = createTree();
-
     private final int pixelWidth;
     private final int pixelHeight;
     private final int logicalWidth;
+    private final List<TreeNode> roots;
     private final BufferedImage image;
     private final ByteBuffer rgbaPixels;
-    private final Set<String> expanded = new HashSet<>(Set.of(
-            "production", "workshop-1", "equipment"));
+    private final Set<String> expanded = new HashSet<>();
     private final List<TreeRow> visibleRows = new ArrayList<>();
     private final List<KeyboardKey> keyboardKeys = new ArrayList<>();
     private final Vector2f leftHit = new Vector2f();
     private final Vector2f rightHit = new Vector2f();
 
-    private String selectedId = "machine-1a-001";
+    private String selectedId;
     private String hoveredId = "";
     private String searchText = "";
     private boolean keyboardVisible;
@@ -55,8 +59,12 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private boolean closed;
 
     TechnicalObjectTreeUI(int pixelWidth, int pixelHeight) {
+        TreeData treeData = loadTree();
         this.pixelWidth = pixelWidth;
         this.pixelHeight = pixelHeight;
+        roots = treeData.roots;
+        expanded.addAll(treeData.expandedIds);
+        selectedId = treeData.selectedId;
         logicalWidth = Math.max(1, Math.round(pixelHeight
                 * AnchoredWindow.WIDTH_METERS / AnchoredWindow.EXPANDED_HEIGHT_METERS));
         image = new BufferedImage(pixelWidth, pixelHeight, BufferedImage.TYPE_INT_ARGB_PRE);
@@ -339,7 +347,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private void drawTree(Graphics2D graphics) {
         visibleRows.clear();
         String query = searchText.strip().toLowerCase(Locale.ROOT);
-        for (TreeNode root : ROOTS) {
+        for (TreeNode root : roots) {
             appendVisibleRows(root, 0, query);
         }
 
@@ -574,37 +582,115 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         return x >= left && x <= left + width && y >= top && y <= top + height;
     }
 
-    private static List<TreeNode> createTree() {
-        TreeNode equipment = new TreeNode("equipment", "Equipment", IconKind.EQUIPMENT, List.of(
-                new TreeNode("machine-1a-001", "Machine 1A-001", IconKind.MACHINE, List.of()),
-                new TreeNode("machine-1a-002", "Machine 1A-002", IconKind.MACHINE, List.of()),
-                new TreeNode("machine-1a-003", "Machine 1A-003", IconKind.MACHINE, List.of())));
-        TreeNode workshopOne = new TreeNode("workshop-1", "Workshop #1", IconKind.BUILDING, List.of(
-                equipment,
-                new TreeNode("engineering-systems", "Engineering Systems", IconKind.THERMAL, List.of(
-                        new TreeNode("ventilation", "Ventilation", IconKind.GRID, List.of()),
-                        new TreeNode("cooling", "Cooling System", IconKind.THERMAL, List.of()))),
-                new TreeNode("utilities", "Utilities", IconKind.POWER, List.of(
-                        new TreeNode("power-grid", "Power Grid", IconKind.POWER, List.of()),
-                        new TreeNode("water-network", "Water Network", IconKind.GRID, List.of())))));
-        TreeNode production = new TreeNode("production", "Production Complex", IconKind.FACTORY, List.of(
-                workshopOne,
-                new TreeNode("workshop-2", "Workshop #2", IconKind.BUILDING, List.of(
-                        new TreeNode("assembly-line", "Assembly Line", IconKind.EQUIPMENT, List.of()),
-                        new TreeNode("robot-cell", "Robot Cell", IconKind.MACHINE, List.of()))),
-                new TreeNode("workshop-3", "Workshop #3", IconKind.BUILDING, List.of(
-                        new TreeNode("quality-lab", "Quality Lab", IconKind.GRID, List.of())))));
-        return List.of(
-                production,
-                new TreeNode("warehouse", "Warehouse Complex", IconKind.WAREHOUSE, List.of(
-                        new TreeNode("warehouse-a", "Warehouse A", IconKind.BUILDING, List.of()),
-                        new TreeNode("loading-dock", "Loading Dock", IconKind.GRID, List.of()))),
-                new TreeNode("administration", "Administrative Building", IconKind.SERVER, List.of(
-                        new TreeNode("control-room", "Control Room", IconKind.GRID, List.of()),
-                        new TreeNode("network-room", "Network Room", IconKind.SERVER, List.of()))),
-                new TreeNode("auxiliary", "Auxiliary Objects", IconKind.GRID, List.of(
-                        new TreeNode("safety", "Safety Systems", IconKind.THERMAL, List.of()),
-                        new TreeNode("comms", "Communications", IconKind.POWER, List.of()))));
+    private static TreeData loadTree() {
+        var resource = TechnicalObjectTreeUI.class.getResourceAsStream("/content/technical-objects.csv");
+        if (resource == null) {
+            throw new IllegalStateException("Missing tree data resource: /content/technical-objects.csv");
+        }
+
+        Map<String, NodeBuilder> nodes = new LinkedHashMap<>();
+        List<String> rootIds = new ArrayList<>();
+        Set<String> expandedIds = new HashSet<>();
+        String selectedId = null;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource, StandardCharsets.UTF_8))) {
+            String header = reader.readLine();
+            if (header == null || !header.replace("\uFEFF", "").equals("id,parent_id,type,label,expanded,selected")) {
+                throw new IllegalStateException("Unexpected CSV header in technical object data");
+            }
+
+            String line;
+            int lineNumber = 1;
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                if (line.isBlank()) {
+                    continue;
+                }
+                List<String> fields = parseCsvLine(line, lineNumber);
+                if (fields.size() != 6) {
+                    throw new IllegalStateException("Expected 6 CSV fields on line " + lineNumber);
+                }
+
+                String id = fields.get(0).strip();
+                String parentId = fields.get(1).strip();
+                String label = fields.get(3).strip();
+                if (id.isEmpty() || label.isEmpty()) {
+                    throw new IllegalStateException("Object id and label are required on line " + lineNumber);
+                }
+                IconKind kind;
+                try {
+                    kind = IconKind.valueOf(fields.get(2).strip().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException exception) {
+                    throw new IllegalStateException("Unknown object type on line " + lineNumber, exception);
+                }
+                NodeBuilder node = new NodeBuilder(id, label, kind);
+                if (nodes.putIfAbsent(id, node) != null) {
+                    throw new IllegalStateException("Duplicate object id on line " + lineNumber + ": " + id);
+                }
+                if (Boolean.parseBoolean(fields.get(4).strip())) {
+                    expandedIds.add(id);
+                }
+                if (Boolean.parseBoolean(fields.get(5).strip())) {
+                    if (selectedId != null) {
+                        throw new IllegalStateException("Only one CSV row can be selected");
+                    }
+                    selectedId = id;
+                }
+                if (parentId.isEmpty()) {
+                    rootIds.add(id);
+                } else {
+                    NodeBuilder parent = nodes.get(parentId);
+                    if (parent == null) {
+                        throw new IllegalStateException("Parent must precede child on line " + lineNumber
+                                + ": " + parentId);
+                    }
+                    parent.children.add(id);
+                }
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not read technical object CSV data", exception);
+        }
+
+        if (rootIds.isEmpty()) {
+            throw new IllegalStateException("Technical object CSV contains no root objects");
+        }
+        if (selectedId == null) {
+            selectedId = rootIds.getFirst();
+        }
+        List<TreeNode> roots = rootIds.stream().map(id -> buildNode(id, nodes)).toList();
+        return new TreeData(roots, expandedIds, selectedId);
+    }
+
+    private static TreeNode buildNode(String id, Map<String, NodeBuilder> nodes) {
+        NodeBuilder node = nodes.get(id);
+        List<TreeNode> children = node.children.stream().map(childId -> buildNode(childId, nodes)).toList();
+        return new TreeNode(node.id, node.label, node.kind, children);
+    }
+
+    private static List<String> parseCsvLine(String line, int lineNumber) {
+        List<String> fields = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean quoted = false;
+        for (int index = 0; index < line.length(); index++) {
+            char character = line.charAt(index);
+            if (character == '"') {
+                if (quoted && index + 1 < line.length() && line.charAt(index + 1) == '"') {
+                    field.append('"');
+                    index++;
+                } else {
+                    quoted = !quoted;
+                }
+            } else if (character == ',' && !quoted) {
+                fields.add(field.toString());
+                field.setLength(0);
+            } else {
+                field.append(character);
+            }
+        }
+        if (quoted) {
+            throw new IllegalStateException("Unclosed quoted field on CSV line " + lineNumber);
+        }
+        fields.add(field.toString());
+        return fields;
     }
 
     @Override
@@ -625,6 +711,22 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private record TreeNode(String id, String label, IconKind kind, List<TreeNode> children) {
+    }
+
+    private static final class NodeBuilder {
+        private final String id;
+        private final String label;
+        private final IconKind kind;
+        private final List<String> children = new ArrayList<>();
+
+        private NodeBuilder(String id, String label, IconKind kind) {
+            this.id = id;
+            this.label = label;
+            this.kind = kind;
+        }
+    }
+
+    private record TreeData(List<TreeNode> roots, Set<String> expandedIds, String selectedId) {
     }
 
     private record TreeRow(TreeNode node, int depth, boolean hasChildren, boolean expanded) {

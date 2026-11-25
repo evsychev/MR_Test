@@ -1,0 +1,81 @@
+id,parent_id,type,label,expanded,selected
+production,,FACTORY,Production Complex,true,false
+workshop-1,production,BUILDING,Workshop #1,true,false
+equipment,workshop-1,EQUIPMENT,Equipment,true,false
+machine-1a-001,equipment,MACHINE,Machine 1A-001,false,true
+machine-1a-002,equipment,MACHINE,Machine 1A-002,false,false
+machine-1a-003,equipment,MACHINE,Machine 1A-003,false,false
+engineering-systems,workshop-1,THERMAL,Engineering Systems,false,false
+ventilation,engineering-systems,GRID,Ventilation,false,false
+air-handler-ah-01,ventilation,MACHINE,Air Handler AH-01,false,false
+air-handler-ah-02,ventilation,MACHINE,Air Handler AH-02,false,false
+cooling,engineering-systems,THERMAL,Cooling System,false,false
+chiller-ch-01,cooling,MACHINE,Chiller CH-01,false,false
+chiller-ch-02,cooling,MACHINE,Chiller CH-02,false,false
+heating,engineering-systems,THERMAL,Heating System,false,false
+boiler-b-01,heating,MACHINE,Boiler B-01,false,false
+utilities,workshop-1,POWER,Utilities,false,false
+power-grid,utilities,POWER,Power Grid,false,false
+transformer-t-01,power-grid,MACHINE,Transformer T-01,false,false
+transformer-t-02,power-grid,MACHINE,Transformer T-02,false,false
+backup-power,utilities,POWER,Backup Power,false,false
+generator-g-01,backup-power,MACHINE,Generator G-01,false,false
+water-network,utilities,GRID,Water Network,false,false
+pump-p-01,water-network,MACHINE,Pump P-01,false,false
+pump-p-02,water-network,MACHINE,Pump P-02,false,false
+compressed-air,utilities,GRID,Compressed Air,false,false
+compressor-c-01,compressed-air,MACHINE,Compressor C-01,false,false
+safety-systems,workshop-1,GRID,Safety Systems,false,false
+fire-detection,safety-systems,THERMAL,Fire Detection,false,false
+fire-panel-fp-01,fire-detection,MACHINE,Fire Panel FP-01,false,false
+emergency-stops,safety-systems,POWER,Emergency Stops,false,false
+workshop-2,production,BUILDING,Workshop #2,false,false
+assembly-line,workshop-2,EQUIPMENT,Assembly Line,false,false
+conveyor-cv-201,assembly-line,MACHINE,Conveyor CV-201,false,false
+conveyor-cv-202,assembly-line,MACHINE,Conveyor CV-202,false,false
+robot-cell,workshop-2,EQUIPMENT,Robot Cell,false,false
+robot-r-201,robot-cell,MACHINE,Robot R-201,false,false
+robot-r-202,robot-cell,MACHINE,Robot R-202,false,false
+packaging-line,workshop-2,EQUIPMENT,Packaging Line,false,false
+packager-pk-201,packaging-line,MACHINE,Packager PK-201,false,false
+workshop-3,production,BUILDING,Workshop #3,false,false
+quality-lab,workshop-3,GRID,Quality Lab,false,false
+inspection-station,quality-lab,EQUIPMENT,Inspection Station,false,false
+vision-system,inspection-station,MACHINE,Vision System VS-301,false,false
+metrology-room,quality-lab,BUILDING,Metrology Room,false,false
+workshop-4,production,BUILDING,Workshop #4,false,false
+maintenance-bay,workshop-4,EQUIPMENT,Maintenance Bay,false,false
+lathe-l-401,maintenance-bay,MACHINE,Lathe L-401,false,false
+milling-m-401,maintenance-bay,MACHINE,Milling Machine M-401,false,false
+production-control,production,SERVER,Production Control,false,false
+mes-server,production-control,SERVER,MES Server,false,false
+scada-server,production-control,SERVER,SCADA Server,false,false
+warehouse,,WAREHOUSE,Warehouse Complex,false,false
+warehouse-a,warehouse,BUILDING,Warehouse A,false,false
+storage-zone-a,warehouse-a,GRID,Storage Zone A,false,false
+rack-a-01,storage-zone-a,SERVER,Rack A-01,false,false
+rack-a-02,storage-zone-a,SERVER,Rack A-02,false,false
+loading-dock,warehouse,GRID,Loading Dock,false,false
+dock-door-01,loading-dock,MACHINE,Dock Door 01,false,false
+dock-door-02,loading-dock,MACHINE,Dock Door 02,false,false
+refrigerated-store,warehouse,THERMAL,Refrigerated Store,false,false
+cold-room-cr-01,refrigerated-store,MACHINE,Cold Room CR-01,false,false
+administration,,SERVER,Administrative Building,false,false
+control-room,administration,GRID,Control Room,false,false
+building-management,administration,SERVER,Building Management System,false,false
+network-room,administration,SERVER,Network Room,false,false
+core-switch-sw-01,network-room,MACHINE,Core Switch SW-01,false,false
+core-switch-sw-02,network-room,MACHINE,Core Switch SW-02,false,false
+office-floor-1,administration,BUILDING,Office Floor 1,false,false
+office-floor-2,administration,BUILDING,Office Floor 2,false,false
+auxiliary,,GRID,Auxiliary Objects,false,false
+site-lighting,auxiliary,POWER,Site Lighting,false,false
+lighting-zone-east,site-lighting,GRID,East Lighting Zone,false,false
+lighting-zone-west,site-lighting,GRID,West Lighting Zone,false,false
+perimeter-security,auxiliary,GRID,Perimeter Security,false,false
+camera-c-001,perimeter-security,MACHINE,Camera C-001,false,false
+camera-c-002,perimeter-security,MACHINE,Camera C-002,false,false
+access-control,auxiliary,SERVER,Access Control,false,false
+gate-g-01,access-control,MACHINE,Gate G-01,false,false
+environmental-monitoring,auxiliary,THERMAL,Environmental Monitoring,false,false
+weather-station-ws-01,environmental-monitoring,MACHINE,Weather Station WS-01,false,false
