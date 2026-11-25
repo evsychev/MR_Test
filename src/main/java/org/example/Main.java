@@ -1,5 +1,6 @@
 package org.example;
 
+import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.LinkedHashSet;
@@ -22,6 +23,7 @@ import org.lwjgl.openxr.XrFrameBeginInfo;
 import org.lwjgl.openxr.XrFrameEndInfo;
 import org.lwjgl.openxr.XrGraphicsBindingVulkanKHR;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.lwjgl.vulkan.VK;
@@ -51,6 +53,7 @@ public final class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     private static final String APPLICATION_NAME = "Modern MR Java";
     private static final String ENGINE_NAME = "Modern MR Engine";
+    private static long frameCounter;
 
     private Main() {
     }
@@ -178,23 +181,25 @@ public final class Main {
     private static void runSessionLifecycle(org.lwjgl.openxr.XrInstance instance, long systemId, Set<String> extensions,
                                             boolean vulkanEnable2Available, boolean vulkanEnableAvailable,
                                             boolean spatialMeshAvailable) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            int environmentBlendMode = selectEnvironmentBlendMode(
-                    instance, systemId, extensions.contains("XR_FB_passthrough"), stack);
-            long requiredVulkanVersion;
-            long maximumVulkanVersionSupported;
-            if (vulkanEnable2Available) {
-                var graphicsRequirements2 = org.lwjgl.openxr.XrGraphicsRequirementsVulkan2KHR.calloc(stack).type$Default();
-                check(org.lwjgl.openxr.KHRVulkanEnable2.xrGetVulkanGraphicsRequirements2KHR(
-                        instance, systemId, graphicsRequirements2), "get OpenXR Vulkan graphics requirements");
-                requiredVulkanVersion = graphicsRequirements2.minApiVersionSupported();
-                maximumVulkanVersionSupported = graphicsRequirements2.maxApiVersionSupported();
-            } else {
-                var graphicsRequirements = org.lwjgl.openxr.XrGraphicsRequirementsVulkanKHR.calloc(stack).type$Default();
-                check(org.lwjgl.openxr.KHRVulkanEnable.xrGetVulkanGraphicsRequirementsKHR(
-                        instance, systemId, graphicsRequirements), "get OpenXR Vulkan graphics requirements");
-                requiredVulkanVersion = graphicsRequirements.minApiVersionSupported();
-                maximumVulkanVersionSupported = graphicsRequirements.maxApiVersionSupported();
+        ByteBuffer stackMemory = MemoryUtil.memAlloc(1024 * 1024);
+        try {
+            try (MemoryStack stack = MemoryStack.create(stackMemory).push()) {
+                int environmentBlendMode = selectEnvironmentBlendMode(
+                        instance, systemId, extensions.contains("XR_FB_passthrough"), stack);
+                long requiredVulkanVersion;
+                long maximumVulkanVersionSupported;
+                if (vulkanEnable2Available) {
+                    var graphicsRequirements2 = org.lwjgl.openxr.XrGraphicsRequirementsVulkan2KHR.calloc(stack).type$Default();
+                    check(org.lwjgl.openxr.KHRVulkanEnable2.xrGetVulkanGraphicsRequirements2KHR(
+                            instance, systemId, graphicsRequirements2), "get OpenXR Vulkan graphics requirements");
+                    requiredVulkanVersion = graphicsRequirements2.minApiVersionSupported();
+                    maximumVulkanVersionSupported = graphicsRequirements2.maxApiVersionSupported();
+                } else {
+                    var graphicsRequirements = org.lwjgl.openxr.XrGraphicsRequirementsVulkanKHR.calloc(stack).type$Default();
+                    check(org.lwjgl.openxr.KHRVulkanEnable.xrGetVulkanGraphicsRequirementsKHR(
+                            instance, systemId, graphicsRequirements), "get OpenXR Vulkan graphics requirements");
+                    requiredVulkanVersion = graphicsRequirements.minApiVersionSupported();
+                    maximumVulkanVersionSupported = graphicsRequirements.maxApiVersionSupported();
             }
             int vulkan12Version = VK10.VK_MAKE_VERSION(1, 2, 0);
             int maximumVulkanApiVersion = VK10.VK_MAKE_VERSION(
@@ -438,6 +443,8 @@ public final class Main {
             check(org.lwjgl.openxr.XR10.nxrEnumerateSwapchainImages(swapchain,
                     swapchainImageCount.get(0), org.lwjgl.system.MemoryUtil.memAddress(swapchainImageCount),
                     swapchainImages.address()), "read Vulkan swapchain images");
+            LOGGER.info("XR swapchain ready: format={}, size={}x{}, views={}, images={}",
+                    swapchainFormat, width, height, viewCount, swapchainImageCount.get(0));
 
             org.lwjgl.openxr.XrPassthroughFB passthrough = null;
             org.lwjgl.openxr.XrPassthroughLayerFB passthroughLayer = null;
@@ -457,9 +464,14 @@ public final class Main {
                         session, passthroughLayerInfo, passthroughLayerHandle), "create passthrough layer");
                 passthroughLayer = new org.lwjgl.openxr.XrPassthroughLayerFB(passthroughLayerHandle.get(0), session);
                 check(org.lwjgl.openxr.FBPassthrough.xrPassthroughLayerResumeFB(passthroughLayer), "resume passthrough layer");
+                LOGGER.info("XR passthrough feature and reconstruction layer are active");
+            } else {
+                LOGGER.warn("XR_FB_passthrough was not enabled; rendering without passthrough");
             }
             VulkanPanelRenderer renderer = new VulkanPanelRenderer(device, graphicsQueueHandle, commandPool,
                     swapchainImages, viewCount, width, height, swapchainFormat, passthroughLayer != null);
+            LOGGER.info("XR Vulkan panel renderer initialized");
+            AnchoredWindow anchoredWindow = new AnchoredWindow();
 
             boolean running = false;
             boolean exiting = false;
@@ -481,6 +493,7 @@ public final class Main {
                                                 .primaryViewConfigurationType(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO)),
                                         "begin OpenXR session");
                                 running = true;
+                                LOGGER.info("XR session begun; frame submission is active");
                                 if (spatialMeshService != null) {
                                     spatialMeshService.startQuery(stack);
                                 }
@@ -499,7 +512,7 @@ public final class Main {
                     }
                     if (running) {
                         runFrame(session, appSpace, swapchain, swapchainImages, viewCount, width, height,
-                                renderer, passthroughLayer, inputHandler, spatialMeshService,
+                                renderer, passthroughLayer, inputHandler, anchoredWindow,
                                 environmentBlendMode);
                     } else {
                         Thread.sleep(10);
@@ -528,6 +541,9 @@ public final class Main {
             VK10.vkDestroyCommandPool(device, commandPool, null);
             VK10.vkDestroyDevice(device, null);
             VK10.vkDestroyInstance(vkInstance, null);
+            }
+        } finally {
+            MemoryUtil.memFree(stackMemory);
         }
     }
 
@@ -535,19 +551,18 @@ public final class Main {
                                  org.lwjgl.openxr.XrSwapchain swapchain, XrSwapchainImageVulkanKHR.Buffer swapchainImages,
                                  int viewCount, int width, int height, VulkanPanelRenderer renderer,
                                  org.lwjgl.openxr.XrPassthroughLayerFB passthroughLayer,
-                                 SpatialInputHandler inputHandler, SpatialMeshService spatialMeshService,
+                                 SpatialInputHandler inputHandler, AnchoredWindow anchoredWindow,
                                  int environmentBlendMode) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
+            long currentFrame = ++frameCounter;
             XrFrameState frameState = XrFrameState.calloc(stack).type$Default();
             check(xrWaitFrame(session, XrFrameWaitInfo.calloc(stack).type$Default(), frameState), "wait for frame");
             check(xrBeginFrame(session, XrFrameBeginInfo.calloc(stack).type$Default()), "begin frame");
             inputHandler.update(frameState.predictedDisplayTime(), appSpace, stack);
-            boolean meshInteraction = spatialMeshService != null
-                    && spatialMeshService.updateControllerProximity(
-                    inputHandler.leftPosition(), inputHandler.leftPoseValid(),
-                    inputHandler.rightPosition(), inputHandler.rightPoseValid(),
-                    appSpace, frameState.predictedDisplayTime(), stack);
             PointerBuffer layers = stack.mallocPointer(2);
+            boolean rendered = false;
+            int locatedViewCount = 0;
+            int acquiredImageIndex = -1;
             if (frameState.shouldRender()) {
                 var locateInfo = org.lwjgl.openxr.XrViewLocateInfo.calloc(stack)
                         .type$Default().viewConfigurationType(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO)
@@ -557,6 +572,13 @@ public final class Main {
                 views.forEach(org.lwjgl.openxr.XrView::type$Default);
                 IntBuffer locatedCount = stack.ints(0);
                 check(xrLocateViews(session, locateInfo, viewState, locatedCount, views), "locate stereo views");
+                locatedViewCount = locatedCount.get(0);
+                anchoredWindow.updateFromViews(views);
+                anchoredWindow.updateInteraction(
+                        inputHandler.leftSelectPressed(), inputHandler.leftPosition(),
+                        inputHandler.leftOrientation(), inputHandler.leftPoseValid(),
+                        inputHandler.rightSelectPressed(), inputHandler.rightPosition(),
+                        inputHandler.rightOrientation(), inputHandler.rightPoseValid());
 
                 IntBuffer imageIndex = stack.ints(0);
                 check(xrAcquireSwapchainImage(swapchain,
@@ -565,37 +587,55 @@ public final class Main {
                 check(xrWaitSwapchainImage(swapchain,
                         org.lwjgl.openxr.XrSwapchainImageWaitInfo.calloc(stack).type$Default().timeout(XR_INFINITE_DURATION)),
                         "wait for swapchain image");
-                renderer.render(imageIndex.get(0), views,
-                        inputHandler.isSelectPressed(), meshInteraction);
+                acquiredImageIndex = imageIndex.get(0);
+                renderer.render(acquiredImageIndex, views, anchoredWindow);
+                rendered = true;
                 check(xrReleaseSwapchainImage(swapchain,
                         org.lwjgl.openxr.XrSwapchainImageReleaseInfo.calloc(stack).type$Default()), "release swapchain image");
 
-                var projectionViews = org.lwjgl.openxr.XrCompositionLayerProjectionView.calloc(viewCount, stack);
-                projectionViews.forEach(org.lwjgl.openxr.XrCompositionLayerProjectionView::type$Default);
-                for (int viewIndex = 0; viewIndex < viewCount; viewIndex++) {
-                    var subImage = org.lwjgl.openxr.XrSwapchainSubImage.calloc(stack)
-                            .swapchain(swapchain).imageArrayIndex(viewIndex)
-                            .imageRect(org.lwjgl.openxr.XrRect2Di.calloc(stack)
-                                    .offset(org.lwjgl.openxr.XrOffset2Di.calloc(stack).set(0, 0))
-                                    .extent(org.lwjgl.openxr.XrExtent2Di.calloc(stack).set(width, height)));
-                    projectionViews.get(viewIndex).pose(views.get(viewIndex).pose())
-                            .fov(views.get(viewIndex).fov()).subImage(subImage);
-                }
-                var projection = org.lwjgl.openxr.XrCompositionLayerProjection.calloc(stack)
-                        .type$Default().space(appSpace).views(projectionViews);
                 if (passthroughLayer != null) {
                     var passthroughComposition = org.lwjgl.openxr.XrCompositionLayerPassthroughFB.calloc(stack)
                             .type$Default().layerHandle(passthroughLayer)
                             .flags(XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT);
                     layers.put(passthroughComposition.address());
-                    projection.layerFlags(XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT);
                 }
-                layers.put(projection.address());
+                var quadSubImage = org.lwjgl.openxr.XrSwapchainSubImage.calloc(stack)
+                        .swapchain(swapchain).imageArrayIndex(0)
+                        .imageRect(org.lwjgl.openxr.XrRect2Di.calloc(stack)
+                                .offset(org.lwjgl.openxr.XrOffset2Di.calloc(stack).set(0, 0))
+                                .extent(org.lwjgl.openxr.XrExtent2Di.calloc(stack).set(width, height)));
+                var centerPosition = anchoredWindow.quadCenterPosition();
+                var orientation = anchoredWindow.anchorOrientation();
+                var quadPose = org.lwjgl.openxr.XrPosef.calloc(stack)
+                        .orientation(org.lwjgl.openxr.XrQuaternionf.calloc(stack)
+                                .x(orientation.x).y(orientation.y).z(orientation.z).w(orientation.w))
+                        .position$(org.lwjgl.openxr.XrVector3f.calloc(stack)
+                                .x(centerPosition.x).y(centerPosition.y).z(centerPosition.z));
+                var quadLayer = org.lwjgl.openxr.XrCompositionLayerQuad.calloc(stack)
+                        .type$Default()
+                        .layerFlags(XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT)
+                        .space(appSpace)
+                        .eyeVisibility(org.lwjgl.openxr.XR10.XR_EYE_VISIBILITY_BOTH)
+                        .subImage(quadSubImage)
+                        .pose(quadPose)
+                        .size(org.lwjgl.openxr.XrExtent2Df.calloc(stack)
+                                .width(AnchoredWindow.WIDTH_METERS).height(anchoredWindow.heightMeters()));
+                layers.put(quadLayer.address());
             }
             layers.flip();
-            check(xrEndFrame(session, XrFrameEndInfo.calloc(stack).type$Default()
+            int submittedLayerCount = layers.remaining();
+            int endFrameResult = xrEndFrame(session, XrFrameEndInfo.calloc(stack).type$Default()
                     .displayTime(frameState.predictedDisplayTime()).environmentBlendMode(environmentBlendMode)
-                    .layers(layers).layerCount(layers.remaining())), "end frame");
+                    .layers(layers).layerCount(submittedLayerCount));
+            check(endFrameResult, "end frame");
+            if (currentFrame <= 5 || currentFrame % 300 == 0) {
+                var anchor = anchoredWindow.anchorPosition();
+                LOGGER.info("XR frame {} submitted: shouldRender={}, rendered={}, views={}, imageIndex={}, " +
+                                "layers={}, passthrough={}, blendMode={}, anchor=({}, {}, {})",
+                        currentFrame, frameState.shouldRender(), rendered, locatedViewCount, acquiredImageIndex,
+                        submittedLayerCount, passthroughLayer != null, environmentBlendMode,
+                        anchor.x, anchor.y, anchor.z);
+            }
         }
     }
 
@@ -607,15 +647,22 @@ public final class Main {
         IntBuffer modes = stack.mallocInt(modeCount.get(0));
         check(xrEnumerateEnvironmentBlendModes(instance, systemId,
                 XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, modeCount, modes), "read environment blend modes");
-        int preferredMode = passthroughRequested
-                ? XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND : XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+        int preferredMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         for (int index = 0; index < modes.capacity(); index++) {
             if (modes.get(index) == preferredMode) {
+                LOGGER.info("Selected OPAQUE environment blend mode (passthrough requested={})",
+                        passthroughRequested);
                 return preferredMode;
             }
         }
         if (passthroughRequested) {
-            throw new OpenXrException("The runtime advertises passthrough but does not support alpha blend mode");
+            for (int index = 0; index < modes.capacity(); index++) {
+                if (modes.get(index) == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND) {
+                    LOGGER.warn("Runtime lacks OPAQUE blend mode; falling back to ALPHA_BLEND with passthrough");
+                    return XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND;
+                }
+            }
+            throw new OpenXrException("The runtime advertises passthrough but supports neither OPAQUE nor ALPHA_BLEND");
         }
         if (modes.capacity() == 0) {
             throw new OpenXrException("The runtime exposes no environment blend mode");

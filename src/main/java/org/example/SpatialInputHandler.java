@@ -17,6 +17,7 @@ import org.lwjgl.openxr.XrInteractionProfileSuggestedBinding;
 import org.lwjgl.openxr.XrSessionActionSetsAttachInfo;
 import org.lwjgl.openxr.XrSpace;
 import org.lwjgl.openxr.XrSpaceLocation;
+import org.joml.Quaternionf;
 import org.lwjgl.system.MemoryStack;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
@@ -48,6 +49,8 @@ final class SpatialInputHandler implements AutoCloseable {
     private boolean rightPoseValid;
     private final Vector3f leftPosition = new Vector3f();
     private final Vector3f rightPosition = new Vector3f();
+    private final Quaternionf leftOrientation = new Quaternionf();
+    private final Quaternionf rightOrientation = new Quaternionf();
 
     SpatialInputHandler(org.lwjgl.openxr.XrInstance instance, org.lwjgl.openxr.XrSession session) {
         this.instance = instance;
@@ -125,6 +128,14 @@ final class SpatialInputHandler implements AutoCloseable {
         return leftSelectPressed || rightSelectPressed;
     }
 
+    boolean leftSelectPressed() {
+        return leftSelectPressed;
+    }
+
+    boolean rightSelectPressed() {
+        return rightSelectPressed;
+    }
+
     boolean leftPoseValid() {
         return leftPoseValid;
     }
@@ -139,6 +150,14 @@ final class SpatialInputHandler implements AutoCloseable {
 
     Vector3f rightPosition() {
         return rightPosition;
+    }
+
+    Quaternionf leftOrientation() {
+        return leftOrientation;
+    }
+
+    Quaternionf rightOrientation() {
+        return rightOrientation;
     }
 
     private boolean updateHand(String handName, long handPath, XrSpace poseSpace, boolean wasPressed,
@@ -170,11 +189,14 @@ final class SpatialInputHandler implements AutoCloseable {
             long requiredFlags = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
             if (result == XR_SUCCESS && (location.locationFlags() & requiredFlags) == requiredFlags) {
                 var position = location.pose().position$();
+                var orientation = location.pose().orientation();
                 if (handName.equals("left")) {
                     leftPosition.set(position.x(), position.y(), position.z());
+                    leftOrientation.set(orientation.x(), orientation.y(), orientation.z(), orientation.w()).normalize();
                     leftPoseValid = true;
                 } else {
                     rightPosition.set(position.x(), position.y(), position.z());
+                    rightOrientation.set(orientation.x(), orientation.y(), orientation.z(), orientation.w()).normalize();
                     rightPoseValid = true;
                 }
                 if (pressed) {

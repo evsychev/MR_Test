@@ -41,18 +41,22 @@ In IntelliJ, use the same paths in the run configuration. Set
 
 When startup succeeds, the application creates a Vulkan-backed OpenXR session,
 enters the stereo frame loop, submits a transparent projection layer, and starts
-`XR_FB_passthrough` when the runtime advertises it. The Vulkan renderer displays
-a small stereoscopic panel in front of the initial view. Select changes the
-panel accent color.
+`XR_FB_passthrough` when the runtime advertises it. The renderer displays a
+small stereoscopic application window in the upper-left area. It is anchored to
+the session's `LOCAL` space using the first valid head pose, so it stays in that
+world location instead of following later head movement. Point a controller at
+the window's top-right control and press Select to minimize or restore it.
+
+The window only tests controller rays against its own button. It does not use
+room geometry for collision or alter the physical scene. This session-local
+anchor is not persisted across application sessions.
 
 The application creates left and right simple-controller select and grip-pose
 actions. When the active runtime provides `XR_FB_spatial_entity_query` and
 `XR_META_spatial_entity_mesh` along with `XR_FB_spatial_entity`, it queries local
 spatial entities, enables their triangle-mesh components, and loads their
-vertices and indices. The panel turns orange when a tracked controller enters
-an entity mesh's local bounds; the event and loaded mesh dimensions are logged.
-Choose a simulator synthetic environment containing scene data to exercise
-spatial mesh loading.
+vertices and indices. Choose a simulator synthetic environment containing
+scene data to exercise spatial mesh loading.
 
 Passthrough and spatial mesh are runtime extensions, so other OpenXR runtimes
 may omit them. The application reports available capabilities and skips the
@@ -70,6 +74,7 @@ the directory containing `libopenxr_loader.dylib`.
 
 - `Main`: runtime and system discovery, session lifecycle, frame loop and layer submission.
 - `VulkanPanelRenderer`: swapchain image views, stereo render pass and virtual panel.
+- `AnchoredWindow`: session-local window pose, minimize/restore state and controller-ray button hit testing.
 - `SpatialInputHandler`: action set, controller select/grip actions and pose spaces.
 - `SpatialMeshService`: local spatial entity query, triangle mesh loading and controller proximity.
 

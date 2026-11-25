@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.openxr.XrSwapchainImageVulkanKHR;
 import org.lwjgl.openxr.XrView;
@@ -50,9 +49,7 @@ import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkDevice;
 
 final class VulkanPanelRenderer implements AutoCloseable {
-    private static final int PUSH_CONSTANT_FLOATS = 20;
-    private static final float NEAR_PLANE = 0.05f;
-    private static final float FAR_PLANE = 50.0f;
+    private static final int PUSH_CONSTANT_FLOATS = 24;
 
     private final VkDevice device;
     private final VkQueue queue;
@@ -81,23 +78,28 @@ final class VulkanPanelRenderer implements AutoCloseable {
         this.width = width;
         this.height = height;
         this.transparentBackground = transparentBackground;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            renderPass = createRenderPass(stack, (int) swapchainFormat);
-            pipelineLayout = createPipelineLayout(stack);
-            graphicsPipeline = createGraphicsPipeline(stack);
-            imageViews = createImageViews(stack, (int) swapchainFormat);
-            framebuffers = createFramebuffers(stack);
-            PointerBuffer commandBufferHandle = stack.mallocPointer(1);
-            VkCommandBufferAllocateInfo allocationInfo = VkCommandBufferAllocateInfo.calloc(stack)
-                    .sType$Default().commandPool(commandPool)
-                    .level(VK10.VK_COMMAND_BUFFER_LEVEL_PRIMARY).commandBufferCount(1);
-            check(VK10.vkAllocateCommandBuffers(device, allocationInfo, commandBufferHandle),
-                    "allocate panel command buffer");
-            commandBuffer = new VkCommandBuffer(commandBufferHandle.get(0), device);
+        ByteBuffer stackMemory = MemoryUtil.memAlloc(256 * 1024);
+        try {
+            try (MemoryStack stack = MemoryStack.create(stackMemory).push()) {
+                renderPass = createRenderPass(stack, (int) swapchainFormat);
+                pipelineLayout = createPipelineLayout(stack);
+                graphicsPipeline = createGraphicsPipeline(stack);
+                imageViews = createImageViews(stack, (int) swapchainFormat);
+                framebuffers = createFramebuffers(stack);
+                PointerBuffer commandBufferHandle = stack.mallocPointer(1);
+                VkCommandBufferAllocateInfo allocationInfo = VkCommandBufferAllocateInfo.calloc(stack)
+                        .sType$Default().commandPool(commandPool)
+                        .level(VK10.VK_COMMAND_BUFFER_LEVEL_PRIMARY).commandBufferCount(1);
+                check(VK10.vkAllocateCommandBuffers(device, allocationInfo, commandBufferHandle),
+                        "allocate panel command buffer");
+                commandBuffer = new VkCommandBuffer(commandBufferHandle.get(0), device);
+            }
+        } finally {
+            MemoryUtil.memFree(stackMemory);
         }
     }
 
-    void render(int imageIndex, XrView.Buffer views, boolean selected, boolean meshInteraction) {
+    void render(int imageIndex, XrView.Buffer views, AnchoredWindow window) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             check(VK10.vkResetCommandBuffer(commandBuffer, 0), "reset panel command buffer");
             VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack)
@@ -106,7 +108,7 @@ final class VulkanPanelRenderer implements AutoCloseable {
 
             for (int eyeIndex = 0; eyeIndex < viewCount; eyeIndex++) {
                 transitionSwapchainImage(imageIndex, eyeIndex, stack);
-                drawEye(imageIndex, eyeIndex, views.get(eyeIndex), selected, meshInteraction, stack);
+                drawEye(imageIndex, eyeIndex, window, stack);
             }
 
             check(VK10.vkEndCommandBuffer(commandBuffer), "end panel command buffer");
@@ -134,8 +136,7 @@ final class VulkanPanelRenderer implements AutoCloseable {
                 0, null, null, barrier);
     }
 
-    private void drawEye(int imageIndex, int eyeIndex, XrView view, boolean selected,
-                         boolean meshInteraction, MemoryStack stack) {
+    private void drawEye(int imageIndex, int eyeIndex, AnchoredWindow window, MemoryStack stack) {
         VkClearValue.Buffer clearValues = VkClearValue.calloc(1, stack);
         clearValues.get(0).color().float32(0, 0.0f).float32(1, 0.0f)
                 .float32(2, 0.0f).float32(3, transparentBackground ? 0.0f : 1.0f);
@@ -155,45 +156,22 @@ final class VulkanPanelRenderer implements AutoCloseable {
                 .offset(org.lwjgl.vulkan.VkOffset2D.calloc(stack).set(0, 0))
                 .extent(org.lwjgl.vulkan.VkExtent2D.calloc(stack).set(width, height)));
         FloatBuffer pushConstants = stack.mallocFloat(PUSH_CONSTANT_FLOATS);
-        modelViewProjection(view).get(pushConstants);
-        if (selected) {
-            pushConstants.put(0.2f).put(1.0f).put(0.35f).put(1.0f);
-        } else if (meshInteraction) {
-            pushConstants.put(1.0f).put(0.58f).put(0.12f).put(1.0f);
+        new Matrix4f().identity().get(pushConstants);
+        if (window.buttonHovered()) {
+            pushConstants.put(0.25f).put(0.95f).put(0.72f).put(1.0f);
         } else {
-            pushConstants.put(0.12f).put(0.82f).put(1.0f).put(1.0f);
+            pushConstants.put(0.12f).put(0.68f).put(1.0f).put(1.0f);
         }
+        pushConstants.put(AnchoredWindow.WIDTH_METERS)
+                .put(window.heightMeters())
+                .put(window.minimized() ? 1.0f : 0.0f)
+                .put(window.buttonHovered() ? 1.0f : 0.0f);
         pushConstants.flip();
         VK10.vkCmdPushConstants(commandBuffer, pipelineLayout,
                 VK10.VK_SHADER_STAGE_VERTEX_BIT | VK10.VK_SHADER_STAGE_FRAGMENT_BIT,
                 0, pushConstants);
         VK10.vkCmdDraw(commandBuffer, 6, 1, 0, 0);
         VK10.vkCmdEndRenderPass(commandBuffer);
-    }
-
-    private Matrix4f modelViewProjection(XrView view) {
-        float left = (float) Math.tan(view.fov().angleLeft());
-        float right = (float) Math.tan(view.fov().angleRight());
-        float down = (float) Math.tan(view.fov().angleDown());
-        float up = (float) Math.tan(view.fov().angleUp());
-        Matrix4f projection = new Matrix4f()
-                .m00(2.0f / (right - left))
-                .m20((right + left) / (right - left))
-                .m11(-2.0f / (up - down))
-                .m21(-(up + down) / (up - down))
-                .m22(FAR_PLANE / (NEAR_PLANE - FAR_PLANE))
-                .m23(-1.0f)
-                .m32((FAR_PLANE * NEAR_PLANE) / (NEAR_PLANE - FAR_PLANE));
-
-        var pose = view.pose();
-        var orientation = pose.orientation();
-        var position = pose.position$();
-        Quaternionf inverseOrientation = new Quaternionf(
-                orientation.x(), orientation.y(), orientation.z(), orientation.w()).conjugate();
-        Matrix4f viewMatrix = new Matrix4f().rotate(inverseOrientation)
-                .translate(-position.x(), -position.y(), -position.z());
-        Matrix4f modelMatrix = new Matrix4f().translation(0.0f, 0.0f, -1.35f);
-        return projection.mul(viewMatrix).mul(modelMatrix);
     }
 
     private long createRenderPass(MemoryStack stack, int format) {
@@ -255,7 +233,7 @@ final class VulkanPanelRenderer implements AutoCloseable {
                     .sType$Default().rasterizationSamples(VK10.VK_SAMPLE_COUNT_1_BIT).sampleShadingEnable(false);
             VkPipelineColorBlendAttachmentState.Buffer blendAttachment =
                     VkPipelineColorBlendAttachmentState.calloc(1, stack)
-                            .blendEnable(true)
+                            .blendEnable(false)
                             .srcColorBlendFactor(VK10.VK_BLEND_FACTOR_SRC_ALPHA)
                             .dstColorBlendFactor(VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
                             .colorBlendOp(VK10.VK_BLEND_OP_ADD)
