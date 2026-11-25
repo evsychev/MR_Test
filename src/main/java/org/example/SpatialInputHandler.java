@@ -9,6 +9,7 @@ import org.lwjgl.openxr.XrActionSet;
 import org.lwjgl.openxr.XrActionSetCreateInfo;
 import org.lwjgl.openxr.XrActionSpaceCreateInfo;
 import org.lwjgl.openxr.XrActionStateBoolean;
+import org.lwjgl.openxr.XrActionStateFloat;
 import org.lwjgl.openxr.XrActionStateGetInfo;
 import org.lwjgl.openxr.XrActionStatePose;
 import org.lwjgl.openxr.XrActionsSyncInfo;
@@ -32,6 +33,7 @@ final class SpatialInputHandler implements AutoCloseable {
     private final org.lwjgl.openxr.XrSession session;
     private final XrActionSet actionSet;
     private final XrAction selectAction;
+    private final XrAction triggerAction;
     private final XrAction poseAction;
     private final long leftHandPath;
     private final long rightHandPath;
@@ -60,9 +62,14 @@ final class SpatialInputHandler implements AutoCloseable {
             rightHandPath = path(stack, "/user/hand/right");
             leftSelectPath = path(stack, "/user/hand/left/input/select/click");
             rightSelectPath = path(stack, "/user/hand/right/input/select/click");
-            leftPosePath = path(stack, "/user/hand/left/input/grip/pose");
-            rightPosePath = path(stack, "/user/hand/right/input/grip/pose");
+            leftPosePath = path(stack, "/user/hand/left/input/aim/pose");
+            rightPosePath = path(stack, "/user/hand/right/input/aim/pose");
             long simpleControllerProfile = path(stack, "/interaction_profiles/khr/simple_controller");
+            long touchControllerProfile = path(stack, "/interaction_profiles/oculus/touch_controller");
+            long leftGripPosePath = path(stack, "/user/hand/left/input/grip/pose");
+            long rightGripPosePath = path(stack, "/user/hand/right/input/grip/pose");
+            long leftTriggerValuePath = path(stack, "/user/hand/left/input/trigger/value");
+            long rightTriggerValuePath = path(stack, "/user/hand/right/input/trigger/value");
 
             PointerBuffer actionSetHandle = stack.mallocPointer(1);
             XrActionSetCreateInfo actionSetInfo = XrActionSetCreateInfo.calloc(stack)
@@ -75,22 +82,13 @@ final class SpatialInputHandler implements AutoCloseable {
 
             LongBuffer handPaths = stack.longs(leftHandPath, rightHandPath);
             selectAction = createAction(stack, "select", "Select", XR_ACTION_TYPE_BOOLEAN_INPUT, handPaths);
+            triggerAction = createAction(stack, "trigger_value", "Trigger", XR_ACTION_TYPE_FLOAT_INPUT, handPaths);
             poseAction = createAction(stack, "grip_pose", "Grip Pose", XR_ACTION_TYPE_POSE_INPUT, handPaths);
 
-            var bindings = org.lwjgl.openxr.XrActionSuggestedBinding.calloc(4, stack);
-            bindings.get(0).set(selectAction, leftSelectPath);
-            bindings.get(1).set(selectAction, rightSelectPath);
-            bindings.get(2).set(poseAction, leftPosePath);
-            bindings.get(3).set(poseAction, rightPosePath);
-            XrInteractionProfileSuggestedBinding bindingInfo =
-                    XrInteractionProfileSuggestedBinding.calloc(stack)
-                            .type$Default()
-                            .interactionProfile(simpleControllerProfile)
-                            .suggestedBindings(bindings);
-            int bindingResult = xrSuggestInteractionProfileBindings(instance, bindingInfo);
-            if (bindingResult != XR_SUCCESS) {
-                LOGGER.warn("The runtime did not accept simple-controller bindings: {}", bindingResult);
-            }
+            suggestBindings(stack, simpleControllerProfile, leftSelectPath, rightSelectPath,
+                    leftGripPosePath, rightGripPosePath);
+            suggestTouchBindings(stack, touchControllerProfile, leftTriggerValuePath, rightTriggerValuePath,
+                    leftPosePath, rightPosePath);
 
             XrSessionActionSetsAttachInfo attachInfo = XrSessionActionSetsAttachInfo.calloc(stack)
                     .type$Default()
@@ -100,7 +98,8 @@ final class SpatialInputHandler implements AutoCloseable {
             leftPoseSpace = createPoseSpace(stack, leftHandPath);
             rightPoseSpace = createPoseSpace(stack, rightHandPath);
         }
-        LOGGER.info("Spatial input actions attached (left/right select and grip pose)");
+        LOGGER.info("Spatial input actions attached for simple controllers and Oculus Touch controllers " +
+                "(boolean select, float trigger value, and aim pose)");
     }
 
     void update(long predictedDisplayTime, XrSpace appSpace, MemoryStack stack) {
@@ -166,9 +165,20 @@ final class SpatialInputHandler implements AutoCloseable {
                 .type$Default().action(selectAction).subactionPath(handPath);
         XrActionStateBoolean selectState = XrActionStateBoolean.calloc(stack).type$Default();
         check(xrGetActionStateBoolean(session, selectInfo, selectState), "read " + handName + " select action");
-        boolean pressed = selectState.isActive() && selectState.currentState();
+        XrActionStateGetInfo triggerInfo = XrActionStateGetInfo.calloc(stack)
+                .type$Default().action(triggerAction).subactionPath(handPath);
+        XrActionStateFloat triggerState = XrActionStateFloat.calloc(stack).type$Default();
+        check(xrGetActionStateFloat(session, triggerInfo, triggerState), "read " + handName + " trigger action");
+        boolean pressed = (selectState.isActive() && selectState.currentState())
+                || (triggerState.isActive() && triggerState.currentState() >= 0.5f);
+        if (!selectState.isActive() && !triggerState.isActive() && wasPressed) {
+            LOGGER.warn("{} select action became inactive; check the Simulator input profile/bindings",
+                    capitalize(handName));
+        }
         if (pressed && !wasPressed) {
-            LOGGER.info("{} controller select pressed", capitalize(handName));
+            LOGGER.info("{} controller select pressed (boolean={}, trigger={})", capitalize(handName),
+                    selectState.isActive() && selectState.currentState(),
+                    triggerState.isActive() ? triggerState.currentState() : 0.0f);
         } else if (!pressed && wasPressed) {
             LOGGER.info("{} controller select released", capitalize(handName));
         }
@@ -176,7 +186,7 @@ final class SpatialInputHandler implements AutoCloseable {
         XrActionStateGetInfo poseInfo = XrActionStateGetInfo.calloc(stack)
                 .type$Default().action(poseAction).subactionPath(handPath);
         XrActionStatePose poseState = XrActionStatePose.calloc(stack).type$Default();
-        check(xrGetActionStatePose(session, poseInfo, poseState), "read " + handName + " grip pose action");
+        check(xrGetActionStatePose(session, poseInfo, poseState), "read " + handName + " pointer pose action");
         boolean poseActive = poseState.isActive();
         if (handName.equals("left")) {
             leftPoseValid = false;
@@ -230,6 +240,43 @@ final class SpatialInputHandler implements AutoCloseable {
         return new XrAction(actionHandle.get(0), actionSet);
     }
 
+    private void suggestBindings(MemoryStack stack, long interactionProfile,
+                                 long leftSelectBinding, long rightSelectBinding,
+                                 long leftPoseBinding, long rightPoseBinding) {
+        var bindings = org.lwjgl.openxr.XrActionSuggestedBinding.calloc(4, stack);
+        bindings.get(0).set(selectAction, leftSelectBinding);
+        bindings.get(1).set(selectAction, rightSelectBinding);
+        bindings.get(2).set(poseAction, leftPoseBinding);
+        bindings.get(3).set(poseAction, rightPoseBinding);
+        XrInteractionProfileSuggestedBinding bindingInfo =
+                XrInteractionProfileSuggestedBinding.calloc(stack)
+                        .type$Default()
+                        .interactionProfile(interactionProfile)
+                        .suggestedBindings(bindings);
+        int result = xrSuggestInteractionProfileBindings(instance, bindingInfo);
+        if (result != XR_SUCCESS) {
+            LOGGER.warn("Runtime rejected interaction bindings for profile {}: {}", interactionProfile, result);
+        }
+    }
+
+    private void suggestTouchBindings(MemoryStack stack, long interactionProfile,
+                                      long leftTriggerBinding, long rightTriggerBinding,
+                                      long leftPoseBinding, long rightPoseBinding) {
+        var bindings = org.lwjgl.openxr.XrActionSuggestedBinding.calloc(4, stack);
+        bindings.get(0).set(triggerAction, leftTriggerBinding);
+        bindings.get(1).set(triggerAction, rightTriggerBinding);
+        bindings.get(2).set(poseAction, leftPoseBinding);
+        bindings.get(3).set(poseAction, rightPoseBinding);
+        var bindingInfo = XrInteractionProfileSuggestedBinding.calloc(stack)
+                .type$Default().interactionProfile(interactionProfile).suggestedBindings(bindings);
+        int result = xrSuggestInteractionProfileBindings(instance, bindingInfo);
+        if (result != XR_SUCCESS) {
+            LOGGER.error("Runtime rejected Oculus Touch bindings (trigger/value and aim/pose): {}", result);
+        } else {
+            LOGGER.info("Runtime accepted Oculus Touch bindings for trigger/value and aim/pose");
+        }
+    }
+
     private XrSpace createPoseSpace(MemoryStack stack, long handPath) {
         var pose = org.lwjgl.openxr.XrPosef.calloc(stack)
                 .orientation(org.lwjgl.openxr.XrQuaternionf.calloc(stack).w(1.0f));
@@ -254,6 +301,8 @@ final class SpatialInputHandler implements AutoCloseable {
         if (result != XR_SUCCESS) LOGGER.warn("Could not destroy right action space: {}", result);
         result = xrDestroyAction(poseAction);
         if (result != XR_SUCCESS) LOGGER.warn("Could not destroy grip pose action: {}", result);
+        result = xrDestroyAction(triggerAction);
+        if (result != XR_SUCCESS) LOGGER.warn("Could not destroy trigger action: {}", result);
         result = xrDestroyAction(selectAction);
         if (result != XR_SUCCESS) LOGGER.warn("Could not destroy select action: {}", result);
         result = xrDestroyActionSet(actionSet);

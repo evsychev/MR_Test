@@ -626,7 +626,7 @@ public final class Main {
                             .subImage(quadSubImage)
                             .pose(quadPose)
                             .size(org.lwjgl.openxr.XrExtent2Df.calloc(stack)
-                                    .width(AnchoredWindow.WIDTH_METERS).height(anchoredWindow.heightMeters()));
+                                    .width(anchoredWindow.widthMeters()).height(anchoredWindow.heightMeters()));
                     layers.put(quadLayer.address());
                 }
             }

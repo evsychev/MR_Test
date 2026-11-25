@@ -25,8 +25,11 @@ import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Quaternionf;
 import org.lwjgl.system.MemoryUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class TechnicalObjectTreeUI implements AutoCloseable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TechnicalObjectTreeUI.class);
     private static final int ROW_HEIGHT = 74;
     private static final int TREE_TOP = 360;
     private static final int LEFT = 48;
@@ -55,6 +58,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private boolean keyboardVisible;
     private boolean previousLeftSelect;
     private boolean previousRightSelect;
+    private int activeGestureHand = -1;
     private boolean dirty = true;
     private boolean closed;
 
@@ -66,7 +70,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         expanded.addAll(treeData.expandedIds);
         selectedId = treeData.selectedId;
         logicalWidth = Math.max(1, Math.round(pixelHeight
-                * AnchoredWindow.WIDTH_METERS / AnchoredWindow.EXPANDED_HEIGHT_METERS));
+                * AnchoredWindow.DEFAULT_WIDTH_METERS / AnchoredWindow.EXPANDED_HEIGHT_METERS));
         image = new BufferedImage(pixelWidth, pixelHeight, BufferedImage.TYPE_INT_ARGB_PRE);
         rgbaPixels = MemoryUtil.memAlloc(pixelWidth * pixelHeight * Integer.BYTES);
     }
@@ -109,19 +113,54 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         }
 
         String nextHoveredId = "";
+        boolean leftClick = leftSelect && !previousLeftSelect;
+        boolean rightClick = rightSelect && !previousRightSelect;
+        // Meta XR Simulator can mirror the selected mouse click into both controller action sets.
+        // Prefer the explicitly selected right pointer to avoid applying a tree toggle twice.
+        if (leftSelect && rightSelect) {
+            leftClick = false;
+        }
+        if (activeGestureHand >= 0) {
+            boolean held = activeGestureHand == 0 ? leftSelect : rightSelect;
+            boolean poseValid = activeGestureHand == 0 ? leftPoseValid : rightPoseValid;
+            Vector3f position = activeGestureHand == 0 ? leftPosition : rightPosition;
+            Quaternionf orientation = activeGestureHand == 0 ? leftOrientation : rightOrientation;
+            Vector2f point = activeGestureHand == 0 ? leftHit : rightHit;
+            if (held && poseValid && window.intersectRayPlane(position, orientation, point)) {
+                window.updateGesture(point.x, point.y);
+            } else if (!held) {
+                window.endGesture();
+                activeGestureHand = -1;
+            }
+            previousLeftSelect = leftSelect;
+            previousRightSelect = rightSelect;
+            dirty = true;
+            return;
+        }
+
         if (leftPoseValid && window.intersectRay(leftPosition, leftOrientation, leftHit)) {
-            nextHoveredId = targetAt(toLogicalX(leftHit.x), toLogicalY(leftHit.y, window));
-            if (leftSelect && !previousLeftSelect) {
-                activateAt(toLogicalX(leftHit.x), toLogicalY(leftHit.y, window), window);
+            int x = toLogicalX(leftHit.x, window);
+            int y = toLogicalY(leftHit.y, window);
+            nextHoveredId = targetAt(x, y);
+            if (leftClick) {
+                if (!beginGestureAt(0, x, y, leftHit, window)) {
+                    LOGGER.info("Left select at panel pixel ({}, {}), target={}", x, y, targetAt(x, y));
+                    activateAt(x, y, window);
+                }
             }
         }
         if (rightPoseValid && window.intersectRay(rightPosition, rightOrientation, rightHit)) {
-            String rightHoveredId = targetAt(toLogicalX(rightHit.x), toLogicalY(rightHit.y, window));
+            int x = toLogicalX(rightHit.x, window);
+            int y = toLogicalY(rightHit.y, window);
+            String rightHoveredId = targetAt(x, y);
             if (!rightHoveredId.isEmpty()) {
                 nextHoveredId = rightHoveredId;
             }
-            if (rightSelect && !previousRightSelect) {
-                activateAt(toLogicalX(rightHit.x), toLogicalY(rightHit.y, window), window);
+            if (rightClick) {
+                if (!beginGestureAt(1, x, y, rightHit, window)) {
+                    LOGGER.info("Right select at panel pixel ({}, {}), target={}", x, y, rightHoveredId);
+                    activateAt(x, y, window);
+                }
             }
         }
         if (!nextHoveredId.equals(hoveredId)) {
@@ -132,12 +171,34 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         previousRightSelect = rightSelect;
     }
 
-    private int toLogicalX(float meters) {
-        return Math.round(meters / AnchoredWindow.WIDTH_METERS * logicalWidth);
+    private int toLogicalX(float meters, AnchoredWindow window) {
+        return Math.round(meters / window.widthMeters() * logicalWidth);
     }
 
     private int toLogicalY(float meters, AnchoredWindow window) {
         return Math.round(meters / window.heightMeters() * pixelHeight);
+    }
+
+    private boolean beginGestureAt(int hand, int x, int y, Vector2f panelPoint, AnchoredWindow window) {
+        if (window.minimized()) {
+            return false;
+        }
+        int edge = 52;
+        boolean left = x <= edge;
+        boolean right = x >= logicalWidth - edge;
+        boolean top = y <= edge;
+        boolean bottom = y >= pixelHeight - edge;
+        if ((left || right) && (top || bottom)) {
+            window.beginResize(panelPoint.x, panelPoint.y, right ? 1 : -1, bottom ? 1 : -1);
+            activeGestureHand = hand;
+            return true;
+        }
+        if (y < 105 && x >= 145 && x <= logicalWidth - 145) {
+            window.beginMove(panelPoint.x, panelPoint.y);
+            activeGestureHand = hand;
+            return true;
+        }
+        return false;
     }
 
     private void activateAt(int x, int y, AnchoredWindow window) {
