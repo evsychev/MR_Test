@@ -354,10 +354,23 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         graphics.setColor(new Color(36, 39, 43, 190));
         graphics.fillRoundRect(8, 8, logicalWidth - 16, pixelHeight - 16, 30, 30);
         graphics.setColor(new Color(230, 235, 242, 220));
-        graphics.setStroke(new BasicStroke(5.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         int centerY = pixelHeight / 2;
-        graphics.drawLine(58, centerY, 102, centerY);
-        drawCloseIcon(graphics, logicalWidth - 78, centerY, false);
+        int lineHeight = Math.round(5.0f * AnchoredWindow.EXPANDED_HEIGHT_METERS
+                / AnchoredWindow.MINIMIZED_HEIGHT_METERS);
+        graphics.fillRoundRect(58, centerY - lineHeight / 2, 44, lineHeight, lineHeight, lineHeight);
+        drawMinimizedCloseIcon(graphics, logicalWidth - 78, centerY);
+    }
+
+    private void drawMinimizedCloseIcon(Graphics2D graphics, int centerX, int centerY) {
+        graphics.setColor(new Color(235, 240, 245, 225));
+        graphics.setStroke(new BasicStroke(4.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int halfWidth = 14;
+        int halfHeight = Math.round(halfWidth * AnchoredWindow.DEFAULT_WIDTH_METERS
+                / logicalWidth * pixelHeight / AnchoredWindow.MINIMIZED_HEIGHT_METERS);
+        graphics.drawLine(centerX - halfWidth, centerY - halfHeight,
+                centerX + halfWidth, centerY + halfHeight);
+        graphics.drawLine(centerX + halfWidth, centerY - halfHeight,
+                centerX - halfWidth, centerY + halfHeight);
     }
 
     private void drawCornerMarkers(Graphics2D graphics) {

@@ -8,7 +8,7 @@ import org.lwjgl.openxr.XrView;
 final class AnchoredWindow {
     static final float DEFAULT_WIDTH_METERS = 0.78f;
     static final float EXPANDED_HEIGHT_METERS = 1.40f;
-    static final float MINIMIZED_HEIGHT_METERS = 0.24f;
+    static final float MINIMIZED_HEIGHT_METERS = 0.08f;
     private static final float MIN_WIDTH_METERS = 0.48f;
     private static final float MAX_WIDTH_METERS = 1.50f;
     private static final float MIN_HEIGHT_METERS = 0.72f;
@@ -80,7 +80,7 @@ final class AnchoredWindow {
 
         float x = localOrigin.x + rayDirection.x * distance;
         float yFromTop = -(localOrigin.y + rayDirection.y * distance);
-        if (x < 0.0f || x > widthMeters || yFromTop < 0.0f || yFromTop > heightMeters()) {
+        if (x < 0.0f || x > widthMeters() || yFromTop < 0.0f || yFromTop > heightMeters()) {
             return false;
         }
 
@@ -166,7 +166,7 @@ final class AnchoredWindow {
 
     Vector3f quadCenterPosition() {
         return new Vector3f(anchorPosition)
-                .add(new Vector3f(widthMeters * 0.5f, -heightMeters() * 0.5f, 0.0f)
+                .add(new Vector3f(widthMeters() * 0.5f, -heightMeters() * 0.5f, 0.0f)
                         .rotate(anchorOrientation));
     }
 
