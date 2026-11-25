@@ -6,9 +6,9 @@ import org.joml.Vector3f;
 import org.lwjgl.openxr.XrView;
 
 final class AnchoredWindow {
-    static final float WIDTH_METERS = 0.39f;
-    static final float EXPANDED_HEIGHT_METERS = 0.70f;
-    static final float MINIMIZED_HEIGHT_METERS = 0.12f;
+    static final float WIDTH_METERS = 0.78f;
+    static final float EXPANDED_HEIGHT_METERS = 1.40f;
+    static final float MINIMIZED_HEIGHT_METERS = 0.24f;
 
     private static final float ANCHOR_DISTANCE_METERS = 1.55f;
     private static final float ANCHOR_LEFT_OFFSET_METERS = -0.85f;
