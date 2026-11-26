@@ -68,6 +68,46 @@ class PanelInteractionTest {
         }
     }
 
+    @Test void pageArrowsAndSwipesPreserveTheTree() {
+        var profile = UserProfile.loadMock();
+        var root = TechnicalObjectTreeDataSource.loadTree().roots().getFirst();
+        try (var store = ProfileStateStore.open(profile.id(), directory.resolve("state.db"));
+             var ui = new TechnicalObjectTreeUI(1024, 1536, window, profile, store);
+             var stack = MemoryStack.stackPush()) {
+            var views = XrView.calloc(2, stack);
+            views.forEach(view -> view.pose().orientation().w(1));
+            window.updateFromViews(views);
+            ui.pollTextureUpdate();
+            int rowY = layout.treeViewport.y + 30;
+            click(ui, 60, rowY);
+            click(ui, 305, rowY + PanelUiLayout.TREE_ROW_HEIGHT);
+            var treeState = store.state();
+            assertTrue(treeState.expandedNodeIds().contains(root.id));
+            assertEquals(root.children.getFirst().id, treeState.selectedNodeId());
+
+            click(ui, layout.previousPage.x + 32, layout.previousPage.y + 32);
+            assertEquals(PanelPage.TECHNICAL_OBJECTS, ui.currentPage());
+            sample(ui, 305, rowY, true);
+            sample(ui, 145, rowY + 5, true);
+            assertEquals(PanelPage.TECHNICAL_OBJECTS, ui.currentPage());
+            sample(ui, 145, rowY + 5, false);
+            assertEquals(PanelPage.ROUNDS, ui.currentPage());
+            click(ui, layout.nextPage.x + 32, layout.nextPage.y + 32);
+            click(ui, 60, rowY);
+            assertEquals(PanelPage.ROUNDS, ui.currentPage());
+            assertEquals(treeState, store.state());
+
+            sample(ui, 175, rowY, true);
+            sample(ui, 335, rowY, false);
+            assertEquals(PanelPage.TECHNICAL_OBJECTS, ui.currentPage());
+            click(ui, layout.nextPage.x + 32, layout.nextPage.y + 32);
+            assertEquals(PanelPage.ROUNDS, ui.currentPage());
+            click(ui, layout.previousPage.x + 32, layout.previousPage.y + 32);
+            assertEquals(PanelPage.TECHNICAL_OBJECTS, ui.currentPage());
+            assertEquals(treeState, store.state());
+        }
+    }
+
     @Test void draggingAndResizingSaveTheReleasedGeometry() {
         var profile = UserProfile.loadMock();
         var path = directory.resolve("state.db");

@@ -44,6 +44,18 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
     private final Vector2f leftHit = new Vector2f();
     private final Vector2f rightHit = new Vector2f();
 
+    private PanelPage page = PanelPage.TECHNICAL_OBJECTS;
+    private int swipeHand = -1;
+    private int pressX;
+    private int pressY;
+    private boolean tapCandidate;
+    private String pressedTarget;
+    private final Vector2f swipeHit = new Vector2f();
+
+    PanelPage currentPage() {
+        return page;
+    }
+
     private String selectedId;
     private String hoveredId = "";
     private TechnicalObject detailsNode;
@@ -108,6 +120,14 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
         if (leftSelect && rightSelect) {
             leftClick = false;
         }
+        if (swipeHand >= 0) {
+            boolean left = swipeHand == 0;
+            updateSwipe(left ? leftSelect : rightSelect, left ? leftPoseValid : rightPoseValid,
+                    left ? leftPosition : rightPosition, left ? leftOrientation : rightOrientation);
+            previousLeftSelect = leftSelect;
+            previousRightSelect = rightSelect;
+            return;
+        }
         if (activeScrollHand >= 0) {
             int previousOffset = treeScrollOffset;
             boolean held = activeScrollHand == 0 ? leftSelect : rightSelect;
@@ -170,8 +190,45 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
         return target;
     }
 
+    private void updateSwipe(boolean held, boolean tracked, Vector3f position, Quaternionf orientation) {
+        boolean valid = tracked && window.intersectRayPlane(position, orientation, swipeHit);
+        if (!valid) {
+            tapCandidate = false;
+            if (!held) swipeHand = -1;
+            lastClickedNodeId = null;
+            return;
+        }
+        int x = layout.toLogicalX(swipeHit.x, window.widthMeters());
+        int y = layout.toPixelY(swipeHit.y, window.heightMeters());
+        int dx = x - pressX;
+        int dy = y - pressY;
+        tapCandidate &= Math.max(Math.abs(dx), Math.abs(dy)) <= Math.max(8, logicalWidth / 50);
+        if (held) return;
+        swipeHand = -1;
+        if (Math.abs(dx) >= logicalWidth * 0.10 && Math.abs(dx) >= 1.5 * Math.abs(dy)) {
+            navigate(dx < 0 ? 1 : -1);
+        } else if (tapCandidate && pressedTarget.equals(targetAt(x, y))
+                && (pressedTarget.startsWith("row-") || pressedTarget.startsWith("expand-"))) {
+            activateRow(pressX, pressY);
+        } else {
+            lastClickedNodeId = null;
+        }
+    }
+
+    private void navigate(int direction) {
+        lastClickedNodeId = null;
+        PanelPage next = page.step(direction);
+        if (next == page) return;
+        page = next;
+        searchKeyboard.hide();
+        hoveredId = "";
+        dirty = true;
+    }
+
     private void activate(String target, int hand, Vector2f hit, int x, int y) {
         switch (target) {
+            case "previous-page" -> navigate(-1);
+            case "next-page" -> navigate(1);
             case "move" -> {
                 window.beginMove(hit.x, hit.y);
                 activeGestureHand = hand;
@@ -200,7 +257,13 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
             case "search" -> searchKeyboard.show();
             default -> {
                 if (target.startsWith("key-")) searchKeyboard.activate(x, y);
-                else if (target.startsWith("row-") || target.startsWith("expand-")) activateRow(x, y);
+                else if (target.equals("page-body") || target.startsWith("row-") || target.startsWith("expand-")) {
+                    swipeHand = hand;
+                    pressX = x;
+                    pressY = y;
+                    pressedTarget = target;
+                    tapCandidate = true;
+                }
                 else return;
             }
         }
@@ -263,7 +326,7 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
         if (layout.isToolbarButton(x, y)) {
             return x < logicalWidth / 2 ? "minimize" : "close";
         }
-        if (hasTreeOverflow() && layout.scrollTrack.contains(x, y)) {
+        if (page == PanelPage.TECHNICAL_OBJECTS && hasTreeOverflow() && layout.scrollTrack.contains(x, y)) {
             return "tree-scroll";
         }
         if (layout.isResizeCorner(x, y)) {
@@ -271,18 +334,22 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
             boolean bottom = layout.isBottomResizeCorner(y);
             return "resize-" + (bottom ? "bottom-" : "top-") + (right ? "right" : "left");
         }
+        if (layout.previousPage.contains(x, y)) return page.step(-1) == page ? "" : "previous-page";
+        if (layout.nextPage.contains(x, y)) return page.step(1) == page ? "" : "next-page";
         if (layout.isToolbarDrag(x, y)) {
             return "move";
         }
+        boolean inBody = layout.panel.contains(x, y) && y >= layout.toolbar.y + layout.toolbar.height;
+        if (page == PanelPage.ROUNDS) return inBody ? "page-body" : "";
         if (layout.searchField.contains(x, y)) {
             return "search";
         }
         if (!layout.treeViewport.contains(x, y)) {
-            return "";
+            return inBody && !layout.statusBar.contains(x, y) ? "page-body" : "";
         }
         int rowIndex = treeScrollOffset + (y - layout.treeViewport.y) / ROW_HEIGHT;
         if (rowIndex < 0 || rowIndex >= visibleRows.size()) {
-            return "";
+            return "page-body";
         }
         TreeRow row = visibleRows.get(rowIndex);
         return isExpandHit(row, x) ? "expand-" + row.node().id : "row-" + row.node().id;
@@ -341,7 +408,8 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private void drawWindow(Graphics2D graphics) {
-        chrome.drawExpanded(graphics, layout, hoveredId);
+        chrome.drawExpanded(graphics, layout, page, hoveredId);
+        if (page == PanelPage.ROUNDS) return;
 
         searchField.draw(graphics, layout, searchKeyboard.text(), searchKeyboard.visible(),
                 "search".equals(hoveredId));

@@ -20,6 +20,8 @@ final class PanelUiLayout {
     final Rectangle minimizeButton;
     final Rectangle closeButton;
     final Rectangle userButton;
+    final Rectangle previousPage;
+    final Rectangle nextPage;
     final Rectangle searchField;
     final Rectangle treeViewport;
     final Rectangle scrollTrack;
@@ -37,6 +39,8 @@ final class PanelUiLayout {
         closeButton = new Rectangle(logicalWidth - buttonX - TOOLBAR_BUTTON_WIDTH,
                 18, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
         userButton = new Rectangle(logicalWidth / 2 - 38, 18, 76, TOOLBAR_BUTTON_HEIGHT);
+        previousPage = new Rectangle(38, 152, 64, 64);
+        nextPage = new Rectangle(logicalWidth - 102, 152, 64, 64);
         searchField = new Rectangle(38, 236, logicalWidth - 76, 84);
         statusBar = new Rectangle(32, pixelHeight - 64, logicalWidth - 64, 38);
         int treeTop = searchField.y + searchField.height + 24;

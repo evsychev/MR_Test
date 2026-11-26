@@ -9,7 +9,7 @@ final class PanelChrome {
     private static final Color PANEL = new Color(36, 39, 43, 148);
     private static final Color FOREGROUND = new Color(235, 240, 245, 225);
 
-    void drawExpanded(Graphics2D graphics, PanelUiLayout layout, String hoveredTarget) {
+    void drawExpanded(Graphics2D graphics, PanelUiLayout layout, PanelPage page, String hoveredTarget) {
         graphics.setColor(PANEL);
         graphics.fillRoundRect(layout.panel.x, layout.panel.y,
                 layout.panel.width, layout.panel.height, 30, 30);
@@ -50,9 +50,29 @@ final class PanelChrome {
                 buttonCenterY, "user-profile".equals(hoveredTarget));
         graphics.setColor(new Color(228, 234, 241, 240));
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 34));
-        int titleX = layout.logicalWidth / 2 - 105;
-        drawNetworkIcon(graphics, titleX - 50, 166);
-        graphics.drawString("Technical Objects", titleX, 178);
+        drawPageArrow(graphics, layout.previousPage, -1, page.step(-1) != page, "previous-page".equals(hoveredTarget));
+        drawPageArrow(graphics, layout.nextPage, 1, page.step(1) != page, "next-page".equals(hoveredTarget));
+        int iconWidth = page == PanelPage.TECHNICAL_OBJECTS ? 76 : 0;
+        String title = PanelText.fit(graphics, page.title, layout.nextPage.x - layout.previousPage.x
+                - layout.previousPage.width - iconWidth - 12);
+        int titleX = (layout.logicalWidth - graphics.getFontMetrics().stringWidth(title) + iconWidth) / 2;
+        if (iconWidth > 0) drawNetworkIcon(graphics, titleX - 55, 180);
+        graphics.setColor(FOREGROUND);
+        graphics.drawString(title, titleX, 192);
+    }
+
+    private void drawPageArrow(Graphics2D graphics, java.awt.Rectangle button, int direction,
+                               boolean enabled, boolean hovered) {
+        if (enabled && hovered) {
+            graphics.setColor(new Color(91, 166, 245, 105));
+            graphics.fillRoundRect(button.x, button.y, button.width, button.height, 18, 18);
+        }
+        graphics.setColor(enabled ? FOREGROUND : new Color(185, 195, 205, 90));
+        graphics.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int x = button.x + button.width / 2;
+        int y = button.y + button.height / 2;
+        graphics.drawLine(x - direction * 7, y - 12, x + direction * 6, y);
+        graphics.drawLine(x + direction * 6, y, x - direction * 7, y + 12);
     }
 
     void drawMinimized(Graphics2D graphics, PanelUiLayout layout, String hoveredTarget) {
