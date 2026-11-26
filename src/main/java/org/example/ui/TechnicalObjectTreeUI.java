@@ -27,10 +27,11 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
     private final int pixelHeight;
     private final PanelUiLayout layout;
     private final int logicalWidth;
-    private final TreeRows treeRows;
+    private final TechnicalObjectTreeDataSource.TreeData treeData;
+    private TreeRows treeRows;
     private final PanelTexture texture;
     private List<TreeRow> visibleRows = List.of();
-    private final SearchKeyboard searchKeyboard = new SearchKeyboard();
+    private SearchKeyboard searchKeyboard = new SearchKeyboard();
     private final TechnicalObjectTreeView treeView = new TechnicalObjectTreeView();
     private final PanelChrome chrome = new PanelChrome();
     private final SearchField searchField = new SearchField();
@@ -73,21 +74,23 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
 
     public TechnicalObjectTreeUI(int pixelWidth, int pixelHeight, AnchoredWindow window,
                                  UserProfile profile, ProfileStateStore store) {
-        TechnicalObjectTreeDataSource.TreeData treeData = TechnicalObjectTreeDataSource.loadTree();
+        treeData = TechnicalObjectTreeDataSource.loadTree();
         this.pixelHeight = pixelHeight;
         layout = new PanelUiLayout(pixelWidth, pixelHeight);
-        selectedId = treeData.selectedId();
         logicalWidth = layout.logicalWidth;
         this.store = store;
         this.userProfile = profile;
         this.window = window;
-        UserAppState saved = store.state();
+        restoreState(store.state());
+        texture = new PanelTexture(pixelWidth, pixelHeight);
+    }
+
+    private void restoreState(UserAppState saved) {
         window.restore(saved);
         lastMinimized = window.minimized();
-        selectedId = saved.selectedNodeId().isBlank() ? selectedId : saved.selectedNodeId();
+        selectedId = saved.selectedNodeId().isBlank() ? treeData.selectedId() : saved.selectedNodeId();
         treeRows = new TreeRows(treeData.roots(), saved.expandedNodeIds());
         treeScrollOffset = saved.treeScrollOffset();
-        texture = new PanelTexture(pixelWidth, pixelHeight);
     }
 
     public ByteBuffer pollTextureUpdate() {
@@ -250,6 +253,14 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
                 searchKeyboard.hide();
                 userProfileOpen = true;
             }
+            case "profile-reset" -> {
+                restoreState(UserAppState.defaults());
+                page = PanelPage.TECHNICAL_OBJECTS;
+                searchKeyboard = new SearchKeyboard();
+                lastClickedNodeId = null;
+                userProfileOpen = false;
+                persistState();
+            }
             case "profile-close" -> userProfileOpen = false;
             case "details-close" -> detailsNode = null;
             case "details-previous" -> detailsPage = Math.max(0, detailsPage - 1);
@@ -300,6 +311,7 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private String targetAt(int x, int y) {
         if (userProfileOpen) {
+            if (layout.profileReset.contains(x, y)) return "profile-reset";
             return x >= logicalWidth - 124 && x <= logicalWidth - 52 && y >= 130 && y <= 202
                     ? "profile-close" : "user-profile-dialog";
         }

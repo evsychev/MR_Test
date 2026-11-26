@@ -28,6 +28,8 @@ import org.lwjgl.vulkan.VkSubpassDescription;
 import static org.example.render.VulkanPanelRenderer.check;
 
 final class PanelPipeline {
+    private static VkPipelineShaderStageCreateInfo main;
+
     private PanelPipeline() {}
 
     static long createRenderPass(VkDevice device, MemoryStack stack, int format) {
@@ -68,8 +70,7 @@ final class PanelPipeline {
         long fragmentShader = createShaderModule(device, stack, "/shaders/mr-panel.frag.spv");
         try {
             VkPipelineShaderStageCreateInfo.Buffer stages = VkPipelineShaderStageCreateInfo.calloc(2, stack);
-            stages.get(0).sType$Default().stage(VK10.VK_SHADER_STAGE_VERTEX_BIT)
-                    .module(vertexShader).pName(stack.UTF8("main"));
+            main;
             stages.get(1).sType$Default().stage(VK10.VK_SHADER_STAGE_FRAGMENT_BIT)
                     .module(fragmentShader).pName(stack.UTF8("main"));
             VkPipelineVertexInputStateCreateInfo vertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack)

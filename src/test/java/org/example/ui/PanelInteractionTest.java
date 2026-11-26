@@ -4,6 +4,7 @@ import org.example.tree.TreeRows;
 
 import org.example.profile.UserProfile;
 import org.example.state.ProfileStateStore;
+import org.example.state.UserAppState;
 import org.example.tree.TechnicalObjectTreeDataSource;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -65,6 +66,37 @@ class PanelInteractionTest {
             click(ui, layout.logicalWidth - 88, 178);
             click(ui, layout.closeButton.x + 40, 50);
             assertTrue(window.closed());
+        }
+    }
+
+    @Test void resettingFromProfileRestoresOnlyTheActiveUsersSettings() {
+        var profile = UserProfile.loadMock();
+        var path = directory.resolve("state.db");
+        var root = TechnicalObjectTreeDataSource.loadTree().roots().getFirst();
+        var changed = new UserAppState(1.1f, 1.8f, .1f, .2f, .3f, true,
+                root.children.getFirst().id, Set.of(root.id), 2);
+        try (var other = ProfileStateStore.open("other-user", path);
+             var store = ProfileStateStore.open(profile.id(), path)) {
+            other.save(changed);
+            store.save(changed);
+            try (var ui = new TechnicalObjectTreeUI(1024, 1536, window, profile, store);
+                 var stack = MemoryStack.stackPush()) {
+                var views = XrView.calloc(2, stack);
+                views.forEach(view -> view.pose().orientation().w(1));
+                window.updateFromViews(views);
+                click(ui, layout.logicalWidth / 2, layout.pixelHeight / 2);
+                click(ui, layout.profileReset.x + 10, layout.profileReset.y + 10);
+                assertEquals(UserAppState.DEFAULT_WIDTH_METERS, window.widthMeters());
+                assertEquals(UserAppState.DEFAULT_HEIGHT_METERS, window.heightMeters());
+                assertFalse(window.minimized());
+            }
+        }
+        try (var other = ProfileStateStore.open("other-user", path);
+             var store = ProfileStateStore.open(profile.id(), path)) {
+            assertEquals(changed, other.state());
+            assertEquals(new UserAppState(UserAppState.DEFAULT_WIDTH_METERS,
+                    UserAppState.DEFAULT_HEIGHT_METERS, 0, 0, 0, false, root.id, Set.of(), 0),
+                    store.state());
         }
     }
 

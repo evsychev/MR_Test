@@ -49,6 +49,17 @@ final class UserProfileDialog {
             graphics.drawString(PanelText.fit(graphics, row[1], width - 310), left + 250, y);
             y += 70;
         }
+
+        var button = layout.profileReset;
+        graphics.setColor("profile-reset".equals(hoveredTarget)
+                ? new Color(61, 110, 165) : new Color(60, 67, 76));
+        graphics.fillRoundRect(button.x, button.y, button.width, button.height, 14, 14);
+        graphics.setColor(TEXT);
+        graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 21));
+        String label = "Reset settings";
+        var metrics = graphics.getFontMetrics();
+        graphics.drawString(label, button.x + (button.width - metrics.stringWidth(label)) / 2,
+                button.y + (button.height - metrics.getHeight()) / 2 + metrics.getAscent());
     }
 
     private static void drawClose(Graphics2D graphics, int x, int y, boolean hovered) {
