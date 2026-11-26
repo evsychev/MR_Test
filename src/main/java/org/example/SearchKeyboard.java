@@ -12,6 +12,7 @@ final class SearchKeyboard {
     private static final int HEIGHT = 390;
     private final List<Key> keys = new ArrayList<>();
     private String text = "";
+    private boolean russianLayout;
     private boolean visible;
 
     boolean visible() {
@@ -57,6 +58,7 @@ final class SearchKeyboard {
                 case "SPACE" -> text += " ";
                 case "CLEAR" -> text = "";
                 case "DONE" -> visible = false;
+                case "LANGUAGE" -> russianLayout = !russianLayout;
                 default -> text += key.action.toLowerCase(Locale.ROOT);
             }
             return;
@@ -69,11 +71,13 @@ final class SearchKeyboard {
         graphics.fillRoundRect(20, panelY, logicalWidth - 40, HEIGHT - 20, 22, 22);
         graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 23));
         graphics.setColor(new Color(220, 228, 237, 215));
-        graphics.drawString("Search", 42, panelY + 34);
+        graphics.drawString("Search · " + (russianLayout ? "RU" : "EN"), 42, panelY + 34);
 
         keys.clear();
-        String[] rows = {"QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
-        int keyHeight = 58;
+        String[] rows = russianLayout
+                ? new String[]{"1234567890", "ЙЦУКЕНГШЩЗХЪ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬБЮ"}
+                : new String[]{"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
+        int keyHeight = 50;
         int gap = 8;
         int contentWidth = logicalWidth - 80;
         int y = panelY + 48;
@@ -82,26 +86,30 @@ final class SearchKeyboard {
             int keyWidth = Math.min(80, (contentWidth - gap * (row.length() - 1)) / row.length());
             int rowWidth = row.length() * keyWidth + (row.length() - 1) * gap;
             int x = (logicalWidth - rowWidth) / 2;
-            if (rowIndex > 0) {
+            if (rowIndex > 1) {
                 x += keyWidth / 2;
             }
             for (int keyIndex = 0; keyIndex < row.length(); keyIndex++) {
                 drawKey(graphics, row.substring(keyIndex, keyIndex + 1),
-                        x + keyIndex * (keyWidth + gap), y + rowIndex * (keyHeight + 9),
+                        x + keyIndex * (keyWidth + gap), y + rowIndex * (keyHeight + 6),
                         keyWidth, keyHeight, hoveredId);
             }
         }
-        int actionY = y + rows.length * (keyHeight + 9) - 4;
-        int actionGap = 10;
-        int spaceWidth = 360;
-        int smallWidth = (contentWidth - spaceWidth - actionGap * 2) / 2;
-        int x = (logicalWidth - (spaceWidth + smallWidth * 2 + actionGap * 2)) / 2;
-        drawKey(graphics, "SPACE", x, actionY, spaceWidth, 58, hoveredId);
-        drawKey(graphics, "CLEAR", x + spaceWidth + actionGap, actionY, smallWidth, 58, hoveredId);
-        drawKey(graphics, "DONE", x + spaceWidth + actionGap + smallWidth + actionGap,
-                actionY, smallWidth, 58, hoveredId);
-        drawKey(graphics, "BACKSPACE", logicalWidth - 140, y + 2 * (keyHeight + 9),
-                74, keyHeight, hoveredId);
+        int actionY = y + rows.length * (keyHeight + 6) - 2;
+        int actionGap = 8;
+        int languageWidth = 76;
+        int utilityWidth = 82;
+        int spaceWidth = contentWidth - languageWidth - utilityWidth * 3 - actionGap * 4;
+        int actionX = (logicalWidth - contentWidth) / 2;
+        drawKey(graphics, "LANGUAGE", actionX, actionY, languageWidth, keyHeight, hoveredId);
+        actionX += languageWidth + actionGap;
+        drawKey(graphics, "SPACE", actionX, actionY, spaceWidth, keyHeight, hoveredId);
+        actionX += spaceWidth + actionGap;
+        drawKey(graphics, "BACKSPACE", actionX, actionY, utilityWidth, keyHeight, hoveredId);
+        actionX += utilityWidth + actionGap;
+        drawKey(graphics, "CLEAR", actionX, actionY, utilityWidth, keyHeight, hoveredId);
+        actionX += utilityWidth + actionGap;
+        drawKey(graphics, "DONE", actionX, actionY, utilityWidth, keyHeight, hoveredId);
     }
 
     private void drawKey(Graphics2D graphics, String action, int x, int y, int width, int height,
@@ -112,7 +120,11 @@ final class SearchKeyboard {
         graphics.fillRoundRect(x, y, width, height, 12, 12);
         graphics.setColor(new Color(230, 236, 243, 200));
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, action.length() > 1 ? 18 : 25));
-        String label = action.equals("BACKSPACE") ? "⌫" : action;
+        String label = switch (action) {
+            case "BACKSPACE" -> "⌫";
+            case "LANGUAGE" -> russianLayout ? "EN" : "RU";
+            default -> action;
+        };
         int labelWidth = graphics.getFontMetrics().stringWidth(label);
         graphics.drawString(label, x + (width - labelWidth) / 2,
                 y + (height + graphics.getFontMetrics().getAscent()) / 2 - 4);

@@ -201,6 +201,10 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         if (detailsNode != null) {
             return false;
         }
+        // The on-panel keyboard is modal and occupies the lower resize and scrollbar hit zones.
+        if (!window.minimized() && searchKeyboard.occupies(y, pixelHeight)) {
+            return false;
+        }
         if (hasTreeOverflow() && layout.scrollTrack.contains(x, y)) {
             beginScrollGesture(hand, y);
             LOGGER.info("Tree scrollbar drag started by {} hand at panel y={} (row offset {})",
@@ -347,6 +351,9 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             }
             return "details";
         }
+        if (!lastMinimized && searchKeyboard.occupies(y, pixelHeight)) {
+            return searchKeyboard.targetAt(x, y);
+        }
         if (lastMinimized) {
             return layout.isMinimizeButtonX(x) ? "minimize"
                     : layout.isCloseButtonX(x) ? "close" : "move";
@@ -363,9 +370,6 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         }
         if (layout.searchField.contains(x, y)) {
             return "search";
-        }
-        if (searchKeyboard.occupies(y, pixelHeight)) {
-            return searchKeyboard.targetAt(x, y);
         }
         if (!lastMinimized && hasTreeOverflow() && layout.scrollTrack.contains(x, y)) {
             return "tree-scroll";
@@ -484,14 +488,14 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         searchField.draw(graphics, layout, searchKeyboard.text(), searchKeyboard.visible(),
                 "search".equals(hoveredId));
         drawTree(graphics);
-        if (searchKeyboard.visible()) {
-            searchKeyboard.draw(graphics, logicalWidth, pixelHeight, hoveredId);
-        }
         if (detailsNode != null) {
             detailsDialog.draw(graphics, layout, detailsNode, detailsPage, hoveredId);
         }
         statusBar.draw(graphics, layout, visibleRowCountInView(), treeScrollOffset,
                 visibleRows.size(), selectedNodeName());
+        if (searchKeyboard.visible()) {
+            searchKeyboard.draw(graphics, logicalWidth, pixelHeight, hoveredId);
+        }
     }
 
     private void drawMinimized(Graphics2D graphics) {
