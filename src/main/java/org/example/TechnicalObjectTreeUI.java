@@ -34,6 +34,8 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private static final int TREE_TOP = 360;
     private static final int LEFT = 48;
     private static final int INDENT = 42;
+    private static final long DOUBLE_CLICK_INTERVAL_NANOS = 450_000_000L;
+    private static final int DETAILS_PAGE_SIZE = 8;
 
     private static final Color FOREGROUND = new Color(235, 240, 245, 242);
     private static final Color SECONDARY = new Color(181, 190, 201, 225);
@@ -53,6 +55,10 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private String selectedId;
     private String hoveredId = "";
+    private TechnicalObjectTreeDataSource.TreeNode detailsNode;
+    private String lastClickedNodeId;
+    private long lastNodeClickNanos;
+    private int detailsPage;
     private boolean previousLeftSelect;
     private boolean previousRightSelect;
     private int activeGestureHand = -1;
@@ -177,7 +183,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private boolean beginGestureAt(int hand, int x, int y, Vector2f panelPoint, AnchoredWindow window) {
-        if (window.minimized()) {
+        if (window.minimized() || detailsNode != null) {
             return false;
         }
         int edge = 52;
@@ -202,9 +208,23 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         if (window.minimized()) {
             if (x < 130) {
                 window.toggleMinimized();
+                detailsNode = null;
             } else if (x > logicalWidth - 130) {
                 window.closeWindow();
                 closed = true;
+            }
+            dirty = true;
+            return;
+        }
+
+        if (detailsNode != null) {
+            if (x > logicalWidth - 150 && y < 195) {
+                detailsNode = null;
+            } else if (y >= pixelHeight - 145 && x < logicalWidth / 2 && detailsPage > 0) {
+                detailsPage--;
+            } else if (y >= pixelHeight - 145 && x >= logicalWidth / 2
+                    && detailsPage + 1 < detailsPageCount()) {
+                detailsPage++;
             }
             dirty = true;
             return;
@@ -214,6 +234,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             if (x < 140) {
                 window.toggleMinimized();
                 searchKeyboard.hide();
+                detailsNode = null;
                 dirty = true;
             } else if (x > logicalWidth - 140) {
                 window.closeWindow();
@@ -239,19 +260,42 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             return;
         }
         TreeRow row = visibleRows.get(rowIndex);
-        int rowTop = TREE_TOP + rowIndex * ROW_HEIGHT;
-        int rowStart = LEFT + row.depth * INDENT;
-        if (row.hasChildren && x <= rowStart + 36 && y <= rowTop + ROW_HEIGHT) {
+        if (isExpandHit(row, x)) {
             if (!expanded.add(row.node.id)) {
                 expanded.remove(row.node.id);
             }
+            lastClickedNodeId = null;
+            LOGGER.info("Tree node {} {} by single click", row.node.id,
+                    expanded.contains(row.node.id) ? "expanded" : "collapsed");
         } else {
             selectedId = row.node.id;
+            long now = System.nanoTime();
+            if (row.node.id.equals(lastClickedNodeId)
+                    && now - lastNodeClickNanos <= DOUBLE_CLICK_INTERVAL_NANOS) {
+                detailsNode = row.node;
+                detailsPage = 0;
+                searchKeyboard.hide();
+                lastClickedNodeId = null;
+                LOGGER.info("Opened technical object details for rtoId={} toCode={}",
+                        row.node.id, row.node.fields.getOrDefault("toCode", ""));
+            } else {
+                lastClickedNodeId = row.node.id;
+                lastNodeClickNanos = now;
+            }
         }
         dirty = true;
     }
 
     private String targetAt(int x, int y) {
+        if (detailsNode != null) {
+            if (x > logicalWidth - 150 && y < 195) {
+                return "details-close";
+            }
+            if (y >= pixelHeight - 145) {
+                return x < logicalWidth / 2 ? "details-previous" : "details-next";
+            }
+            return "details";
+        }
         if (y < 105) {
             return x < 140 ? "minimize" : x > logicalWidth - 140 ? "close" : "toolbar";
         }
@@ -262,8 +306,16 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             return searchKeyboard.targetAt(x, y);
         }
         int rowIndex = (y - TREE_TOP) / ROW_HEIGHT;
-        return rowIndex >= 0 && rowIndex < visibleRows.size()
-                ? "row-" + visibleRows.get(rowIndex).node.id : "";
+        if (rowIndex < 0 || rowIndex >= visibleRows.size()) {
+            return "";
+        }
+        TreeRow row = visibleRows.get(rowIndex);
+        return isExpandHit(row, x) ? "expand-" + row.node.id : "row-" + row.node.id;
+    }
+
+    private static boolean isExpandHit(TreeRow row, int x) {
+        int rowStart = LEFT + row.depth * INDENT;
+        return row.hasChildren && x <= rowStart + 82;
     }
 
     private void paintImage() {
@@ -320,6 +372,9 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         drawTree(graphics);
         if (searchKeyboard.visible()) {
             searchKeyboard.draw(graphics, logicalWidth, pixelHeight, hoveredId);
+        }
+        if (detailsNode != null) {
+            drawDetailsDialog(graphics);
         }
     }
 
@@ -441,7 +496,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private boolean containsMatch(TechnicalObjectTreeDataSource.TreeNode node, String query) {
-        if (query.isEmpty() || node.label.toLowerCase(Locale.ROOT).contains(query)) {
+        if (query.isEmpty() || node.searchText().toLowerCase(Locale.ROOT).contains(query)) {
             return true;
         }
         for (TechnicalObjectTreeDataSource.TreeNode child : node.children) {
@@ -450,6 +505,114 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             }
         }
         return false;
+    }
+
+    private void drawDetailsDialog(Graphics2D graphics) {
+        graphics.setColor(new Color(7, 10, 13, 145));
+        graphics.fillRect(0, 0, logicalWidth, pixelHeight);
+
+        int left = 28;
+        int top = 82;
+        int width = logicalWidth - 56;
+        int height = pixelHeight - 164;
+        graphics.setColor(new Color(31, 35, 40, 246));
+        graphics.fillRoundRect(left, top, width, height, 28, 28);
+        graphics.setColor(new Color(188, 199, 210, 155));
+        graphics.setStroke(new BasicStroke(2.0f));
+        graphics.drawRoundRect(left, top, width, height, 28, 28);
+
+        graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 29));
+        graphics.setColor(FOREGROUND);
+        graphics.drawString("Technical Object Details", left + 28, top + 56);
+        graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+        graphics.setColor(SECONDARY);
+        graphics.drawString(fitText(graphics, detailsNode.label, width - 180), left + 28, top + 94);
+        drawCloseIcon(graphics, logicalWidth - 76, top + 50,
+                "details-close".equals(hoveredId));
+
+        List<Map.Entry<String, String>> fields = new ArrayList<>(detailsNode.fields.entrySet());
+        int pageCount = detailsPageCount();
+        int firstField = detailsPage * DETAILS_PAGE_SIZE;
+        int endField = Math.min(fields.size(), firstField + DETAILS_PAGE_SIZE);
+        int rowTop = top + 132;
+        int labelX = left + 28;
+        int valueX = left + 300;
+        int valueWidth = width - 340;
+        for (int index = firstField; index < endField; index++) {
+            Map.Entry<String, String> field = fields.get(index);
+            String value = field.getValue().isBlank() ? "—" : field.getValue();
+            List<String> lines = wrapText(graphics, value, valueWidth, 4);
+            int rowHeight = Math.max(60, 34 + lines.size() * 23);
+            graphics.setColor(new Color(181, 203, 225, 235));
+            graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 17));
+            graphics.drawString(field.getKey(), labelX, rowTop + 28);
+            graphics.setColor(FOREGROUND);
+            graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16));
+            int valueY = rowTop + 24;
+            for (String line : lines) {
+                graphics.drawString(line, valueX, valueY);
+                valueY += 23;
+            }
+            rowTop += rowHeight;
+        }
+
+        int navigationY = top + height - 54;
+        graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 18));
+        graphics.setColor(detailsPage > 0 ? FOREGROUND : new Color(145, 151, 158, 150));
+        graphics.drawString("‹ Previous", left + 28, navigationY);
+        graphics.setColor(SECONDARY);
+        graphics.drawString((detailsPage + 1) + " / " + pageCount, logicalWidth / 2 - 28, navigationY);
+        graphics.setColor(detailsPage + 1 < pageCount ? FOREGROUND : new Color(145, 151, 158, 150));
+        graphics.drawString("Next ›", logicalWidth - 130, navigationY);
+    }
+
+    private int detailsPageCount() {
+        if (detailsNode == null) {
+            return 0;
+        }
+        int count = detailsNode.fields.size();
+        return Math.max(1, (count + DETAILS_PAGE_SIZE - 1) / DETAILS_PAGE_SIZE);
+    }
+
+    private static List<String> wrapText(Graphics2D graphics, String text, int maxWidth, int maxLines) {
+        var metrics = graphics.getFontMetrics();
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (int index = 0; index < text.length(); index++) {
+            char character = text.charAt(index);
+            line.append(character);
+            if (metrics.stringWidth(line.toString()) > maxWidth && line.length() > 1) {
+                char last = line.charAt(line.length() - 1);
+                line.setLength(line.length() - 1);
+                lines.add(line.toString());
+                line.setLength(0);
+                line.append(last);
+                if (lines.size() == maxLines) {
+                    String lastLine = lines.getLast();
+                    lines.set(lines.size() - 1, fitText(graphics, lastLine, maxWidth - 24) + "…");
+                    return lines;
+                }
+            }
+        }
+        if (!line.isEmpty()) {
+            lines.add(line.toString());
+        }
+        if (lines.isEmpty()) {
+            lines.add("—");
+        }
+        return lines;
+    }
+
+    private static String fitText(Graphics2D graphics, String text, int maxWidth) {
+        var metrics = graphics.getFontMetrics();
+        if (metrics.stringWidth(text) <= maxWidth) {
+            return text;
+        }
+        String clipped = text;
+        while (!clipped.isEmpty() && metrics.stringWidth(clipped + "…") > maxWidth) {
+            clipped = clipped.substring(0, clipped.length() - 1);
+        }
+        return clipped + "…";
     }
 
     private void drawTreeGuides(Graphics2D graphics, int rowIndex, TreeRow row) {

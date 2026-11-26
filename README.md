@@ -47,6 +47,13 @@ the user's head with an adjustable offset that persists for the current session.
 Use Select on its header to move it, on the corner markers to resize it, and on
 the header controls to minimize, restore, or close it.
 
+The object tree reads `src/main/resources/content/technical-objects.csv` in the
+source feed's 24-column format, with fields separated by `|~|`. The technical
+root whose `rtoId` is `00000000-0001-0001-0001-000000000001` is hidden. Parent
+links use `rtoParent`; records whose parent is absent from the supplied data are
+shown as top-level items. Double-click a tree item to open its paged details
+window.
+
 The window only tests controller rays against its own button. It does not use
 room geometry for collision or alter the physical scene. This session-local
 anchor is not persisted across application sessions.
@@ -80,7 +87,7 @@ the directory containing `libopenxr_loader.dylib`.
 - `VulkanPanelRenderer`: swapchain image views, stereo render pass and virtual panel.
 - `TechnicalObjectTreeUI`: panel painting, search, selection and ray-based widget interaction.
 - `SearchKeyboard`: on-panel search keyboard state, key hit testing and rendering.
-- `TechnicalObjectTreeDataSource`: CSV parsing and technical-object hierarchy construction.
+- `TechnicalObjectTreeDataSource`: `|~|` feed parsing, hidden-root handling, and technical-object hierarchy construction.
 - `AnchoredWindow`: head-relative window pose, move/resize gestures and controller-ray intersection.
 - `SpatialInputHandler`: OpenXR action bindings and pointer pose spaces.
 - `SpatialMeshService`: local spatial entity query, triangle mesh loading and controller proximity.

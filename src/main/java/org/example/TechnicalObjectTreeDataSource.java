@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,7 +13,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 final class TechnicalObjectTreeDataSource {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TechnicalObjectTreeDataSource.class);
+    private static final String FIELD_SEPARATOR = "|~|";
+    private static final String HIDDEN_ROOT_ID = "00000000-0001-0001-0001-000000000001";
+    private static final List<String> EXPECTED_COLUMNS = List.of(
+            "rtoId", "rtoParent", "rtoCurrentStatus", "del", "toId", "toCode", "toName",
+            "toFullName", "toIsRepairObject", "toCurrentStatus", "toUpd", "classId", "classCode",
+            "className", "classImageName", "classKindImageName", "classAdditional", "rtoSource",
+            "propertyAndValue", "repairObject", "note", "NFCcode", "ActivityName", "OwnershipName");
+
     private TechnicalObjectTreeDataSource() {
     }
 
@@ -23,13 +36,15 @@ final class TechnicalObjectTreeDataSource {
         }
 
         Map<String, NodeBuilder> nodes = new LinkedHashMap<>();
-        List<String> rootIds = new ArrayList<>();
         Set<String> expandedIds = new HashSet<>();
-        String selectedId = null;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource, StandardCharsets.UTF_8))) {
             String header = reader.readLine();
-            if (header == null || !header.replace("\uFEFF", "").equals("id,parent_id,type,label,expanded,selected")) {
-                throw new IllegalStateException("Unexpected CSV header in technical object data");
+            if (header == null) {
+                throw new IllegalStateException("Technical object data is empty");
+            }
+            List<String> columns = splitRecord(header.replace("\uFEFF", ""), 1);
+            if (!columns.equals(EXPECTED_COLUMNS)) {
+                throw new IllegalStateException("Unexpected technical object data header: " + columns);
             }
 
             String line;
@@ -39,122 +54,168 @@ final class TechnicalObjectTreeDataSource {
                 if (line.isBlank()) {
                     continue;
                 }
-                List<String> fields = parseCsvLine(line, lineNumber);
-                if (fields.size() != 6) {
-                    throw new IllegalStateException("Expected 6 CSV fields on line " + lineNumber);
+                List<String> values = splitRecord(line, lineNumber);
+                if (values.size() != EXPECTED_COLUMNS.size()) {
+                    throw new IllegalStateException("Expected " + EXPECTED_COLUMNS.size()
+                            + " fields on technical object line " + lineNumber + " but got " + values.size());
                 }
 
-                String id = fields.get(0).strip();
-                String parentId = fields.get(1).strip();
-                String label = fields.get(3).strip();
-                if (id.isEmpty() || label.isEmpty()) {
-                    throw new IllegalStateException("Object id and label are required on line " + lineNumber);
+                Map<String, String> fields = new LinkedHashMap<>();
+                for (int index = 0; index < EXPECTED_COLUMNS.size(); index++) {
+                    fields.put(EXPECTED_COLUMNS.get(index), values.get(index));
                 }
-                IconKind kind;
-                try {
-                    kind = IconKind.valueOf(fields.get(2).strip().toUpperCase(Locale.ROOT));
-                } catch (IllegalArgumentException exception) {
-                    throw new IllegalStateException("Unknown object type on line " + lineNumber, exception);
+                String id = value(fields, "rtoId");
+                if (id.isBlank()) {
+                    throw new IllegalStateException("rtoId is required on technical object line " + lineNumber);
                 }
-                NodeBuilder node = new NodeBuilder(id, label, kind);
+                if (HIDDEN_ROOT_ID.equals(id)) {
+                    continue;
+                }
+
+                String label = firstNonBlank(value(fields, "toName"), value(fields, "toFullName"),
+                        value(fields, "toCode"), value(fields, "toId"));
+                if (label.isBlank()) {
+                    throw new IllegalStateException("Object display name is missing on line " + lineNumber);
+                }
+                NodeBuilder node = new NodeBuilder(id, value(fields, "rtoParent"), label,
+                        determineIconKind(fields), Collections.unmodifiableMap(new LinkedHashMap<>(fields)));
                 if (nodes.putIfAbsent(id, node) != null) {
-                    throw new IllegalStateException("Duplicate object id on line " + lineNumber + ": " + id);
-                }
-                if (Boolean.parseBoolean(fields.get(4).strip())) {
-                    expandedIds.add(id);
-                }
-                if (Boolean.parseBoolean(fields.get(5).strip())) {
-                    if (selectedId != null) {
-                        throw new IllegalStateException("Only one CSV row can be selected");
-                    }
-                    selectedId = id;
-                }
-                if (parentId.isEmpty()) {
-                    rootIds.add(id);
-                } else {
-                    NodeBuilder parent = nodes.get(parentId);
-                    if (parent == null) {
-                        throw new IllegalStateException("Parent must precede child on line " + lineNumber
-                                + ": " + parentId);
-                    }
-                    parent.children.add(id);
+                    throw new IllegalStateException("Duplicate rtoId on line " + lineNumber + ": " + id);
                 }
             }
         } catch (IOException exception) {
-            throw new IllegalStateException("Could not read technical object CSV data", exception);
+            throw new IllegalStateException("Could not read technical object data", exception);
         }
 
-        if (rootIds.isEmpty()) {
-            throw new IllegalStateException("Technical object CSV contains no root objects");
+        if (nodes.isEmpty()) {
+            throw new IllegalStateException("Technical object data contains no visible objects");
         }
-        if (selectedId == null) {
-            selectedId = rootIds.getFirst();
+
+        List<NodeBuilder> rootBuilders = new ArrayList<>();
+        int missingParentCount = 0;
+        for (NodeBuilder node : nodes.values()) {
+            if (node.parentId.isBlank() || HIDDEN_ROOT_ID.equals(node.parentId)) {
+                rootBuilders.add(node);
+                continue;
+            }
+            NodeBuilder parent = nodes.get(node.parentId);
+            if (parent == null) {
+                rootBuilders.add(node);
+                missingParentCount++;
+            } else {
+                parent.children.add(node.id);
+            }
         }
-        List<TreeNode> roots = rootIds.stream().map(id -> buildNode(id, nodes)).toList();
+        if (missingParentCount > 0) {
+            LOGGER.warn("{} technical object(s) reference parent IDs absent from the supplied data; showing them as roots",
+                    missingParentCount);
+        }
+        if (rootBuilders.isEmpty()) {
+            throw new IllegalStateException("Technical object hierarchy has no visible root; check parent links");
+        }
+
+        List<TreeNode> roots = rootBuilders.stream().map(node -> buildNode(node.id, nodes, new HashSet<>())).toList();
+        String selectedId = rootBuilders.getFirst().id;
         return new TreeData(roots, expandedIds, selectedId);
     }
 
-    private static TreeNode buildNode(String id, Map<String, NodeBuilder> nodes) {
-        NodeBuilder node = nodes.get(id);
-        List<TreeNode> children = node.children.stream().map(childId -> buildNode(childId, nodes)).toList();
-        return new TreeNode(node.id, node.label, node.kind, children);
+    private static List<String> splitRecord(String line, int lineNumber) {
+        String[] split = line.split("\\Q" + FIELD_SEPARATOR + "\\E", -1);
+        int fieldCount = split.length;
+        if (fieldCount > 0 && split[fieldCount - 1].isEmpty()) {
+            fieldCount--;
+        }
+        if (fieldCount != EXPECTED_COLUMNS.size()) {
+            throw new IllegalStateException("Expected " + EXPECTED_COLUMNS.size()
+                    + " fields on technical object line " + lineNumber + " but got " + fieldCount);
+        }
+        return java.util.Arrays.asList(split).subList(0, fieldCount);
     }
 
-    private static List<String> parseCsvLine(String line, int lineNumber) {
-        List<String> fields = new ArrayList<>();
-        StringBuilder field = new StringBuilder();
-        boolean quoted = false;
-        for (int index = 0; index < line.length(); index++) {
-            char character = line.charAt(index);
-            if (character == '"') {
-                if (quoted && index + 1 < line.length() && line.charAt(index + 1) == '"') {
-                    field.append('"');
-                    index++;
-                } else {
-                    quoted = !quoted;
-                }
-            } else if (character == ',' && !quoted) {
-                fields.add(field.toString());
-                field.setLength(0);
-            } else {
-                field.append(character);
+    private static TreeNode buildNode(String id, Map<String, NodeBuilder> nodes, Set<String> path) {
+        NodeBuilder node = nodes.get(id);
+        if (!path.add(id)) {
+            throw new IllegalStateException("Cycle detected in technical object hierarchy at " + id);
+        }
+        List<TreeNode> children = node.children.stream()
+                .map(childId -> buildNode(childId, nodes, new HashSet<>(path))).toList();
+        return new TreeNode(node.id, node.label, node.kind, node.fields, children);
+    }
+
+    private static IconKind determineIconKind(Map<String, String> fields) {
+        String kind = value(fields, "classKindImageName").toUpperCase(Locale.ROOT);
+        String className = value(fields, "className").toLowerCase(Locale.ROOT);
+        String label = firstNonBlank(value(fields, "toName"), value(fields, "toFullName"))
+                .toLowerCase(Locale.ROOT);
+        if (kind.equals("TM") || label.contains("лпдс") || label.contains("завод") || label.contains("комплекс")) {
+            return IconKind.FACTORY;
+        }
+        if (className.contains("температур") || className.contains("теплов")) {
+            return IconKind.THERMAL;
+        }
+        if (className.contains("электр") || className.contains("коммуникац")) {
+            return IconKind.POWER;
+        }
+        if (className.contains("помещен") || label.contains("цех")) {
+            return IconKind.BUILDING;
+        }
+        if (className.contains("систем") || kind.startsWith("EO")) {
+            return IconKind.EQUIPMENT;
+        }
+        return IconKind.MACHINE;
+    }
+
+    private static String value(Map<String, String> fields, String name) {
+        return fields.getOrDefault(name, "").strip();
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.strip();
             }
         }
-        if (quoted) {
-            throw new IllegalStateException("Unclosed quoted field on CSV line " + lineNumber);
+        return "";
+    }
+
+    private static final class NodeBuilder {
+        private final String id;
+        private final String parentId;
+        private final String label;
+        private final IconKind kind;
+        private final Map<String, String> fields;
+        private final List<String> children = new ArrayList<>();
+
+        private NodeBuilder(String id, String parentId, String label, IconKind kind, Map<String, String> fields) {
+            this.id = id;
+            this.parentId = parentId;
+            this.label = label;
+            this.kind = kind;
+            this.fields = fields;
         }
-        fields.add(field.toString());
-        return fields;
     }
 
     enum IconKind {
-        FACTORY, BUILDING,EQUIPMENT,MACHINE,THERMAL,POWER,WAREHOUSE,SERVER,GRID
+        FACTORY, BUILDING, EQUIPMENT, MACHINE, THERMAL, POWER, WAREHOUSE, SERVER, GRID
     }
 
     static final class TreeNode {
         final String id;
         final String label;
         final IconKind kind;
+        final Map<String, String> fields;
         final List<TreeNode> children;
 
-        TreeNode(String id, String label, IconKind kind, List<TreeNode> children) {
+        TreeNode(String id, String label, IconKind kind, Map<String, String> fields, List<TreeNode> children) {
             this.id = id;
             this.label = label;
             this.kind = kind;
+            this.fields = fields;
             this.children = children;
         }
-    }
 
-    private static final class NodeBuilder {
-        private final String id;
-        private final String label;
-        private final IconKind kind;
-        private final List<String> children = new ArrayList<>();
-
-        private NodeBuilder(String id, String label, IconKind kind) {
-            this.id = id;
-            this.label = label;
-            this.kind = kind;
+        String searchText() {
+            return String.join(" ", fields.values());
         }
     }
 
