@@ -61,6 +61,7 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
     private String hoveredId = "";
     private TechnicalObject detailsNode;
     private boolean userProfileOpen;
+    private String language;
     private String lastClickedNodeId;
     private long lastNodeClickNanos;
     private int detailsPage;
@@ -87,6 +88,7 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private void restoreState(UserAppState saved) {
         window.restore(saved);
+        language = saved.language();
         lastMinimized = window.minimized();
         selectedId = saved.selectedNodeId().isBlank() ? treeData.selectedId() : saved.selectedNodeId();
         treeRows = new TreeRows(treeData.roots(), saved.expandedNodeIds());
@@ -95,7 +97,7 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
 
     public ByteBuffer pollTextureUpdate() {
         if (!dirty) return null;
-        var pixels = texture.paint(layout, this::draw);
+        var pixels = texture.paint(layout, graphics -> ScopedValue.where(Messages.ACTIVE, Messages.locale(language)).run(() -> draw(graphics)));
         dirty = false;
         return pixels;
     }
@@ -253,6 +255,10 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
                 searchKeyboard.hide();
                 userProfileOpen = true;
             }
+            case "language-ru", "language-en" -> {
+                language = target.substring("language-".length());
+                persistState();
+            }
             case "profile-reset" -> {
                 restoreState(UserAppState.defaults());
                 page = PanelPage.TECHNICAL_OBJECTS;
@@ -311,6 +317,8 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private String targetAt(int x, int y) {
         if (userProfileOpen) {
+            if (layout.russianButton.contains(x, y)) return "language-ru";
+            if (layout.englishButton.contains(x, y)) return "language-en";
             if (layout.profileReset.contains(x, y)) return "profile-reset";
             return x >= logicalWidth - 124 && x <= logicalWidth - 52 && y >= 130 && y <= 202
                     ? "profile-close" : "user-profile-dialog";
@@ -394,7 +402,7 @@ public final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private void persistState() {
-        store.save(window.snapshot(selectedId, treeRows.expandedIds(), treeScrollOffset));
+        store.save(window.snapshot(selectedId, treeRows.expandedIds(), treeScrollOffset).withLanguage(language));
     }
 
     private boolean hasTreeOverflow() {

@@ -95,3 +95,7 @@ The Maven and IntelliJ entry point is `org.example.Main`. Packages under `org.ex
 
 Run `mvn clean verify` with JDK 25 to compile, exercise the panel and storage regressions,
 and package the application. Tests use temporary SQLite databases and headless panel rendering.
+
+## Interface language
+
+The interface supports English and Russian. Russian is the default regardless of the system locale. Select Русский or English in User profile to apply and save a personal preference. Reset settings restores the startup language. To set the startup language in an IntelliJ run configuration, add `-Dmr.language=ru` or `-Dmr.language=en` to the VM options. The on-screen keyboard has its own EN/RU input switch. Object names and profile values are displayed as supplied by the data source.

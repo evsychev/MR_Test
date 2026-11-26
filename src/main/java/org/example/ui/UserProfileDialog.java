@@ -27,17 +27,17 @@ final class UserProfileDialog {
 
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 30));
         graphics.setColor(TEXT);
-        graphics.drawString("User profile", left + 34, top + 55);
+        graphics.drawString(Messages.text("profile.title"), left + 34, top + 55);
         drawClose(graphics, layout.logicalWidth - 88, top + 48,
                 "profile-close".equals(hoveredTarget));
 
         List<String[]> rows = List.of(
-                new String[]{"Name", profile.name()},
-                new String[]{"Username", profile.username()},
-                new String[]{"Position", profile.position()},
-                new String[]{"Email", profile.email()},
-                new String[]{"Organization", profile.organization()},
-                new String[]{"Role", String.join(", ", profile.roles())}
+                new String[]{Messages.text("profile.name"), profile.name()},
+                new String[]{Messages.text("profile.username"), profile.username()},
+                new String[]{Messages.text("profile.position"), profile.position()},
+                new String[]{Messages.text("profile.email"), profile.email()},
+                new String[]{Messages.text("profile.organization"), profile.organization()},
+                new String[]{Messages.text("profile.role"), String.join(", ", profile.roles())}
         );
         int y = top + 118;
         for (String[] row : rows) {
@@ -50,16 +50,34 @@ final class UserProfileDialog {
             y += 70;
         }
 
+        graphics.setColor(TEXT);
+        graphics.drawString(Messages.text("profile.language"), layout.russianButton.x, layout.russianButton.y - 16);
+        drawLanguage(graphics, layout.russianButton, "ru", hoveredTarget);
+        drawLanguage(graphics, layout.englishButton, "en", hoveredTarget);
+
         var button = layout.profileReset;
         graphics.setColor("profile-reset".equals(hoveredTarget)
                 ? new Color(61, 110, 165) : new Color(60, 67, 76));
         graphics.fillRoundRect(button.x, button.y, button.width, button.height, 14, 14);
         graphics.setColor(TEXT);
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 21));
-        String label = "Reset settings";
+        String label = Messages.text("profile.reset");
         var metrics = graphics.getFontMetrics();
         graphics.drawString(label, button.x + (button.width - metrics.stringWidth(label)) / 2,
                 button.y + (button.height - metrics.getHeight()) / 2 + metrics.getAscent());
+    }
+
+    private static void drawLanguage(Graphics2D graphics, java.awt.Rectangle button, String code, String hovered) {
+        boolean selected = Messages.ACTIVE.get().getLanguage().equals(code);
+        graphics.setColor(selected ? new Color(48, 105, 162) : new Color(60, 67, 76));
+        graphics.fillRoundRect(button.x, button.y, button.width, button.height, 14, 14);
+        graphics.setColor(TEXT);
+        if (hovered.equals("language-" + code)) {
+            graphics.drawRoundRect(button.x, button.y, button.width, button.height, 14, 14);
+        }
+        String label = Messages.text("language." + code);
+        graphics.drawString(label, button.x + (button.width - graphics.getFontMetrics().stringWidth(label)) / 2,
+                button.y + 34);
     }
 
     private static void drawClose(Graphics2D graphics, int x, int y, boolean hovered) {

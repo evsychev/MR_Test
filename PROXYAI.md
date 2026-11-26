@@ -29,3 +29,7 @@ When writing or updating `pom.xml`, use the latest stable LWJGL 3 coordinates wi
 
 ## 🌐 Portability Requirement
 The product target is the OpenXR ecosystem, not Meta-only hardware. Keep the core engine vendor-neutral, negotiate extensions per runtime, and implement vendor integrations as optional modules. Do not make Meta XR Simulator or Meta passthrough extensions a hard dependency for bootstrap or session startup.
+
+## Internationalization
+
+Support English and Russian in every UI change. Add each user-facing message to both UTF-8 bundles in `src/main/resources/i18n`. Use complete message patterns for dynamic sentences so translations can reorder arguments. Keep action identifiers and external data values independent of display language. Check that both translations fit their controls.

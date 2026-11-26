@@ -35,7 +35,7 @@ final class TechnicalObjectDetailsDialog {
 
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 29));
         graphics.setColor(PRIMARY);
-        graphics.drawString("Technical Object Details", left + 28, top + 56);
+        graphics.drawString(Messages.text("details.title"), left + 28, top + 56);
         graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
         graphics.setColor(SECONDARY);
         graphics.drawString(PanelText.fit(graphics, node.label, width - 180), left + 28, top + 94);
@@ -60,7 +60,7 @@ final class TechnicalObjectDetailsDialog {
                 int rowHeight = Math.max(60, 34 + lines.size() * 23);
                 graphics.setColor(new Color(181, 203, 225, 235));
                 graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 17));
-                graphics.drawString(PanelText.fit(graphics, field.getKey(), valueX - labelX - 18),
+                graphics.drawString(PanelText.fit(graphics, Messages.text("field." + field.getKey()), valueX - labelX - 18),
                         labelX, rowTop + 28);
                 graphics.setColor(PRIMARY);
                 graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16));
@@ -86,11 +86,11 @@ final class TechnicalObjectDetailsDialog {
             graphics.fillRoundRect(layout.logicalWidth - 154, navigationY - 26, 120, 36, 12, 12);
         }
         graphics.setColor(page > 0 ? PRIMARY : new Color(145, 151, 158, 150));
-        graphics.drawString("‹ Previous", left + 28, navigationY);
+        graphics.drawString(Messages.text("details.previous"), left + 28, navigationY);
         graphics.setColor(SECONDARY);
         graphics.drawString((page + 1) + " / " + pages, layout.logicalWidth / 2 - 28, navigationY);
         graphics.setColor(page + 1 < pages ? PRIMARY : new Color(145, 151, 158, 150));
-        graphics.drawString("Next ›", layout.logicalWidth - 130, navigationY);
+        graphics.drawString(Messages.text("details.next"), layout.logicalWidth - 130, navigationY);
     }
 
     private static List<String> wrapText(Graphics2D graphics, String text, int maxWidth, int maxLines) {

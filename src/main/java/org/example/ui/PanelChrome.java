@@ -55,11 +55,11 @@ final class PanelChrome {
         int iconWidth = 68;
         int iconGap = 20;
         int textWidth = layout.pageHeading.width - iconWidth - iconGap - 12;
-        int measuredWidth = graphics.getFontMetrics().stringWidth(page.title);
+        int measuredWidth = graphics.getFontMetrics().stringWidth(page.title());
         if (measuredWidth > textWidth && textWidth > 0) {
             graphics.setFont(graphics.getFont().deriveFont(34f * textWidth / measuredWidth));
         }
-        String title = PanelText.fit(graphics, page.title, textWidth);
+        String title = PanelText.fit(graphics, page.title(), textWidth);
         int titleX = (layout.logicalWidth - graphics.getFontMetrics().stringWidth(title) + iconWidth + iconGap) / 2;
         int iconLeft = titleX - iconGap - iconWidth;
         switch (page) {

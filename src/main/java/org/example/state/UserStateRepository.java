@@ -78,7 +78,7 @@ final class UserStateRepository implements AutoCloseable {
                 number(values, "offsetX", 0), number(values, "offsetY", 0), number(values, "offsetZ", 0),
                 Boolean.parseBoolean(values.getOrDefault("minimized", "false")),
                 values.getOrDefault("selectedNodeId", ""), Set.copyOf(expanded),
-                integer(values, "treeScrollOffset", 0));
+                integer(values, "treeScrollOffset", 0), values.getOrDefault("language", ""));
     }
 
     public void save(String userId, UserAppState state) throws SQLException {
@@ -96,6 +96,7 @@ final class UserStateRepository implements AutoCloseable {
             put(upsert, userId, "selectedNodeId", state.selectedNodeId());
             put(upsert, userId, "expandedNodeIds", String.join("\n", state.expandedNodeIds()));
             put(upsert, userId, "treeScrollOffset", state.treeScrollOffset());
+            put(upsert, userId, "language", state.language());
             upsert.executeBatch();
             connection.commit();
         } catch (SQLException exception) {

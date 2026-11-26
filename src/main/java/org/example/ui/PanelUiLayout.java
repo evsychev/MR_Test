@@ -21,6 +21,8 @@ final class PanelUiLayout {
     final Rectangle closeButton;
     final Rectangle userButton;
     final Rectangle profileReset;
+    final Rectangle russianButton;
+    final Rectangle englishButton;
     final Rectangle pageHeading;
     final Rectangle previousPage;
     final Rectangle nextPage;
@@ -41,6 +43,8 @@ final class PanelUiLayout {
         closeButton = new Rectangle(logicalWidth - buttonX - TOOLBAR_BUTTON_WIDTH,
                 18, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
         userButton = new Rectangle(logicalWidth / 2 - 38, 18, 76, TOOLBAR_BUTTON_HEIGHT);
+        russianButton = new Rectangle(84, 736, 156, 54);
+        englishButton = new Rectangle(252, 736, 156, 54);
         profileReset = new Rectangle(84, pixelHeight - 218, 224, 56);
         int navigationTop = CORNER_RESIZE_SIZE + 1;
         int navigationButtonSize = toolbar.y + toolbar.height - navigationTop;

@@ -70,7 +70,7 @@ final class SearchKeyboard {
         graphics.fillRoundRect(20, panelY, logicalWidth - 40, HEIGHT - 20, 22, 22);
         graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 23));
         graphics.setColor(new Color(220, 228, 237, 215));
-        graphics.drawString("Search · " + (russianLayout ? "RU" : "EN"), 42, panelY + 34);
+        graphics.drawString(Messages.format("keyboard.title", russianLayout ? "RU" : "EN"), 42, panelY + 34);
 
         keys.clear();
         String[] rows = russianLayout
@@ -121,6 +121,9 @@ final class SearchKeyboard {
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, action.length() > 1 ? 18 : 25));
         String label = switch (action) {
             case "BACKSPACE" -> "⌫";
+            case "SPACE" -> Messages.text("keyboard.space");
+            case "CLEAR" -> Messages.text("keyboard.clear");
+            case "DONE" -> Messages.text("keyboard.done");
             case "LANGUAGE" -> russianLayout ? "EN" : "RU";
             default -> action;
         };

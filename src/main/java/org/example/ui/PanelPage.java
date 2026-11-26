@@ -1,13 +1,17 @@
 package org.example.ui;
 
 enum PanelPage {
-    TECHNICAL_OBJECTS("Дерево РТО"),
-    ROUNDS("Обходы");
+    TECHNICAL_OBJECTS("page.tree"),
+    ROUNDS("page.rounds");
 
-    final String title;
+    private final String titleKey;
 
     PanelPage(String title) {
-        this.title = title;
+        this.titleKey = title;
+    }
+
+    String title() {
+        return Messages.text(titleKey);
     }
 
     PanelPage step(int direction) {

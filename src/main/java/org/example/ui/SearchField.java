@@ -22,7 +22,7 @@ final class SearchField {
         graphics.drawLine(field.x + 51, field.y + 50, field.x + 66, field.y + 65);
         graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 28));
         graphics.setColor(text.isEmpty() ? new Color(202, 209, 217, 145) : new Color(235, 240, 245, 242));
-        String value = text.isEmpty() ? "Search objects..." : text;
+        String value = text.isEmpty() ? Messages.text("search.placeholder") : text;
         graphics.drawString(PanelText.fit(graphics, value, field.width - 110), field.x + 82, field.y + 53);
         if (editing) {
             graphics.setColor(ACCENT);
