@@ -128,9 +128,8 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             boolean poseValid = activeGestureHand == 0 ? leftPoseValid : rightPoseValid;
             Vector3f position = activeGestureHand == 0 ? leftPosition : rightPosition;
             Quaternionf orientation = activeGestureHand == 0 ? leftOrientation : rightOrientation;
-            Vector2f point = activeGestureHand == 0 ? leftHit : rightHit;
-            if (held && poseValid && window.intersectRayPlane(position, orientation, point)) {
-                window.updateGesture(point.x, point.y);
+            if (held && poseValid) {
+                window.updateGestureFromRay(position, orientation);
             } else if (!held) {
                 window.endGesture();
                 activeGestureHand = -1;
@@ -183,7 +182,15 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private boolean beginGestureAt(int hand, int x, int y, Vector2f panelPoint, AnchoredWindow window) {
-        if (window.minimized() || detailsNode != null) {
+        if (detailsNode != null) {
+            return false;
+        }
+        if (window.minimized()) {
+            if (x >= 130 && x <= logicalWidth - 130) {
+                window.beginMove(panelPoint.x, panelPoint.y);
+                activeGestureHand = hand;
+                return true;
+            }
             return false;
         }
         int edge = 52;

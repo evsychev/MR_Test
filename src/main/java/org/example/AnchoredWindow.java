@@ -28,8 +28,14 @@ final class AnchoredWindow {
     private float widthMeters = DEFAULT_WIDTH_METERS;
     private float expandedHeightMeters = EXPANDED_HEIGHT_METERS;
     private Gesture gesture = Gesture.NONE;
-    private float previousPointerX;
-    private float previousPointerY;
+    private final Vector3f gesturePlanePosition = new Vector3f();
+    private final Quaternionf gesturePlaneOrientation = new Quaternionf();
+    private final Vector3f gestureStartWorldHit = new Vector3f();
+    private final Vector3f gestureStartUserOffset = new Vector3f();
+    private float gestureStartPanelX;
+    private float gestureStartPanelY;
+    private float gestureStartWidth;
+    private float gestureStartHeight;
     private int resizeHorizontalSign;
     private int resizeVerticalSign;
 
@@ -110,34 +116,53 @@ final class AnchoredWindow {
 
     void beginMove(float panelX, float panelY) {
         gesture = Gesture.MOVE;
-        previousPointerX = panelX;
-        previousPointerY = panelY;
+        beginGesturePlane(panelX, panelY);
     }
 
     void beginResize(float panelX, float panelY, int horizontalSign, int verticalSign) {
         gesture = Gesture.RESIZE;
-        previousPointerX = panelX;
-        previousPointerY = panelY;
+        beginGesturePlane(panelX, panelY);
         resizeHorizontalSign = horizontalSign;
         resizeVerticalSign = verticalSign;
     }
 
-    void updateGesture(float panelX, float panelY) {
+    private void beginGesturePlane(float panelX, float panelY) {
+        gesturePlanePosition.set(anchorPosition);
+        gesturePlaneOrientation.set(anchorOrientation);
+        gestureStartPanelX = panelX;
+        gestureStartPanelY = panelY;
+        gestureStartWidth = widthMeters;
+        gestureStartHeight = expandedHeightMeters;
+        gestureStartUserOffset.set(userOffset);
+        gestureStartWorldHit.set(panelX, -panelY, 0.0f).rotate(gesturePlaneOrientation).add(gesturePlanePosition);
+    }
+
+    void updateGestureFromRay(Vector3f rayOrigin, Quaternionf rayOrientation) {
         if (gesture == Gesture.NONE) {
             return;
         }
-        float deltaX = panelX - previousPointerX;
-        float deltaY = panelY - previousPointerY;
+        Vector3f hit = new Vector3f();
+        if (!intersectGesturePlane(rayOrigin, rayOrientation, hit)) {
+            return;
+        }
+        Vector3f movement = hit.sub(gestureStartWorldHit).rotate(new Quaternionf(gesturePlaneOrientation).conjugate());
+        float deltaX = movement.x;
+        float deltaY = -movement.y;
         if (gesture == Gesture.MOVE) {
-            userOffset.add(deltaX, -deltaY, 0.0f);
-            anchorPosition.add(new Vector3f(deltaX, -deltaY, 0.0f).rotate(anchorOrientation));
+            Vector3f desiredUserOffset = new Vector3f(gestureStartUserOffset)
+                    .add(new Vector3f(deltaX, -deltaY, 0.0f).rotate(gesturePlaneOrientation)
+                            .rotate(new Quaternionf(anchorOrientation).conjugate()));
+            Vector3f offsetChange = new Vector3f(desiredUserOffset).sub(userOffset);
+            userOffset.set(desiredUserOffset);
+            anchorPosition.add(offsetChange.rotate(anchorOrientation));
         } else {
             float previousWidth = widthMeters;
-            widthMeters = clamp(widthMeters + resizeHorizontalSign * deltaX, MIN_WIDTH_METERS, MAX_WIDTH_METERS);
+            widthMeters = clamp(gestureStartWidth + resizeHorizontalSign * deltaX,
+                    MIN_WIDTH_METERS, MAX_WIDTH_METERS);
             float widthDelta = widthMeters - previousWidth;
             if (!minimized) {
                 float previousHeight = expandedHeightMeters;
-                float resizedHeight = clamp(previousHeight + resizeVerticalSign * deltaY,
+                float resizedHeight = clamp(gestureStartHeight + resizeVerticalSign * deltaY,
                         MIN_HEIGHT_METERS, MAX_HEIGHT_METERS);
                 float heightDelta = resizedHeight - previousHeight;
                 if (resizeVerticalSign < 0) {
@@ -152,8 +177,24 @@ final class AnchoredWindow {
                 userOffset.add(anchorDeltaX, 0.0f, 0.0f);
             }
         }
-        previousPointerX = panelX;
-        previousPointerY = panelY;
+    }
+
+    private boolean intersectGesturePlane(Vector3f rayOrigin, Quaternionf rayOrientation, Vector3f hit) {
+        Quaternionf inverseOrientation = new Quaternionf(gesturePlaneOrientation).conjugate();
+        Vector3f localOrigin = new Vector3f(rayOrigin).sub(gesturePlanePosition).rotate(inverseOrientation);
+        Vector3f localDirection = new Vector3f(0.0f, 0.0f, -1.0f)
+                .rotate(rayOrientation).rotate(inverseOrientation);
+        if (Math.abs(localDirection.z) < 0.0001f) {
+            return false;
+        }
+        float distance = -localOrigin.z / localDirection.z;
+        if (distance < 0.0f || distance > RAY_LENGTH_METERS) {
+            return false;
+        }
+        hit.set(localOrigin.x + localDirection.x * distance,
+                localOrigin.y + localDirection.y * distance, 0.0f)
+                .rotate(gesturePlaneOrientation).add(gesturePlanePosition);
+        return true;
     }
 
     void endGesture() {
