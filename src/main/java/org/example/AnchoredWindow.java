@@ -64,6 +64,18 @@ final class AnchoredWindow {
         initialized = true;
     }
 
+    void restore(UserAppState state) {
+        widthMeters = clamp(state.widthMeters(), MIN_WIDTH_METERS, MAX_WIDTH_METERS);
+        expandedHeightMeters = clamp(state.heightMeters(), MIN_HEIGHT_METERS, MAX_HEIGHT_METERS);
+        userOffset.set(state.offsetX(), state.offsetY(), state.offsetZ());
+        minimized = state.minimized();
+    }
+
+    UserAppState snapshot(String selectedId, java.util.Set<String> expandedIds, int scrollOffset) {
+        return new UserAppState(widthMeters, expandedHeightMeters, userOffset.x, userOffset.y, userOffset.z,
+                minimized, selectedId, java.util.Set.copyOf(expandedIds), scrollOffset);
+    }
+
     boolean intersectRay(Vector3f rayOrigin, Quaternionf rayOrientation, Vector2f panelPoint) {
         if (!initialized || closed) {
             return false;

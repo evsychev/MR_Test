@@ -47,6 +47,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private final TechnicalObjectDetailsDialog detailsDialog = new TechnicalObjectDetailsDialog();
     private final UserProfileDialog userProfileDialog = new UserProfileDialog();
     private final UserProfile userProfile = UserProfile.loadMock();
+    private final UserStateRepository stateRepository;
     private final Vector2f activeScrollHit = new Vector2f();
     private final Vector2f leftHit = new Vector2f();
     private final Vector2f rightHit = new Vector2f();
@@ -66,6 +67,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private int activeGestureHand = -1;
     private boolean dirty = true;
     private boolean closed;
+    private boolean stateStorageAvailable;
 
     TechnicalObjectTreeUI(int pixelWidth, int pixelHeight) {
         TechnicalObjectTreeDataSource.TreeData treeData = TechnicalObjectTreeDataSource.loadTree();
@@ -76,6 +78,31 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         expanded.addAll(treeData.expandedIds());
         selectedId = treeData.selectedId();
         logicalWidth = layout.logicalWidth;
+        UserStateRepository openedRepository = null;
+        UserAppState savedState = UserAppState.defaults();
+        try {
+            String userId = userProfile.value("id");
+            if (!userId.isBlank()) {
+                openedRepository = UserStateRepository.open();
+                savedState = openedRepository.load(userId);
+                stateStorageAvailable = true;
+            } else {
+                LOGGER.warn("Profile has no stable user ID; application state will not be persisted");
+            }
+        } catch (Exception exception) {
+            LOGGER.error("Could not initialize per-user state storage; using default state", exception);
+            if (openedRepository != null) {
+                try { openedRepository.close(); } catch (Exception ignored) { }
+                openedRepository = null;
+            }
+        }
+        stateRepository = openedRepository;
+        loadedWindowState = savedState;
+        if (stateStorageAvailable) {
+            selectedId = savedState.selectedNodeId().isBlank() ? selectedId : savedState.selectedNodeId();
+            expanded.addAll(savedState.expandedNodeIds());
+            treeScrollOffset = savedState.treeScrollOffset();
+        }
         image = new BufferedImage(pixelWidth, pixelHeight, BufferedImage.TYPE_INT_ARGB_PRE);
         rgbaPixels = MemoryUtil.memAlloc(pixelWidth * pixelHeight * Integer.BYTES);
     }
@@ -116,6 +143,12 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             previousRightSelect = rightSelect;
             return;
         }
+        if (stateStorageAvailable && !windowStateRestored) {
+            window.restore(loadedWindowState);
+            lastMinimized = window.minimized();
+            windowStateRestored = true;
+            dirty = true;
+        }
 
         String nextHoveredId = "";
         boolean leftClick = leftSelect && !previousLeftSelect;
@@ -135,6 +168,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             } else if (!held) {
                 LOGGER.info("Tree scrollbar drag released at row offset {}", treeScrollOffset);
                 activeScrollHand = -1;
+                persistState(window);
             }
             hoveredId = "tree-scroll";
             previousLeftSelect = leftSelect;
@@ -152,6 +186,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             } else if (!held) {
                 window.endGesture();
                 activeGestureHand = -1;
+                persistState(window);
             }
             previousLeftSelect = leftSelect;
             previousRightSelect = rightSelect;
@@ -271,6 +306,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
                 closed = true;
             }
             dirty = true;
+            persistState(window);
             return;
         }
 
@@ -284,6 +320,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
                 detailsPage++;
             }
             dirty = true;
+            persistState(window);
             return;
         }
 
@@ -308,6 +345,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
                 searchKeyboard.hide();
                 detailsNode = null;
                 dirty = true;
+                persistState(window);
             } else {
                 window.closeWindow();
                 closed = true;
@@ -365,6 +403,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
             }
         }
         dirty = true;
+        persistState(window);
     }
 
     private String targetAt(int x, int y) {
@@ -469,6 +508,20 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private int visibleRowCountInView() {
         return Math.max(1, layout.treeViewport.height / ROW_HEIGHT);
+    }
+
+    private UserAppState loadedWindowState = UserAppState.defaults();
+    private boolean windowStateRestored;
+
+    private void persistState(AnchoredWindow window) {
+        if (!stateStorageAvailable || stateRepository == null) return;
+        try {
+            stateRepository.save(userProfile.value("id"),
+                    window.snapshot(selectedId, expanded, treeScrollOffset));
+        } catch (Exception exception) {
+            stateStorageAvailable = false;
+            LOGGER.error("Could not save application state for the active user", exception);
+        }
     }
 
     private boolean hasTreeOverflow() {
@@ -581,6 +634,13 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     @Override
     public void close() {
         MemoryUtil.memFree(rgbaPixels);
+        if (stateRepository != null) {
+            try {
+                stateRepository.close();
+            } catch (Exception exception) {
+                LOGGER.warn("Could not close user state database cleanly", exception);
+            }
+        }
     }
 
 
