@@ -26,6 +26,11 @@ final class PanelChrome {
             graphics.fillRoundRect(layout.closeButton.x, layout.closeButton.y,
                     layout.closeButton.width, layout.closeButton.height, 18, 18);
         }
+        if ("user-profile".equals(hoveredTarget)) {
+            graphics.setColor(new Color(91, 166, 245, 105));
+            graphics.fillRoundRect(layout.userButton.x, layout.userButton.y,
+                    layout.userButton.width, layout.userButton.height, 18, 18);
+        }
 
         graphics.setColor(new Color(230, 235, 242, 180));
         graphics.setStroke(new BasicStroke(4.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -42,6 +47,8 @@ final class PanelChrome {
                 minimizeCenterX + 19, buttonCenterY);
         drawCloseIcon(graphics, closeCenterX, buttonCenterY,
                 "close".equals(hoveredTarget));
+        drawUserIcon(graphics, layout.userButton.x + layout.userButton.width / 2,
+                buttonCenterY, "user-profile".equals(hoveredTarget));
         graphics.setColor(new Color(228, 234, 241, 240));
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 34));
         int titleX = layout.logicalWidth / 2 - 105;
@@ -61,11 +68,13 @@ final class PanelChrome {
         }
         int minimizeCenterX = layout.minimizeButton.x + layout.minimizeButton.width / 2;
         int closeCenterX = layout.closeButton.x + layout.closeButton.width / 2;
+        int userCenterX = layout.userButton.x + layout.userButton.width / 2;
         int lineHeight = Math.round(5.0f * AnchoredWindow.EXPANDED_HEIGHT_METERS
                 / AnchoredWindow.MINIMIZED_HEIGHT_METERS);
         graphics.fillRoundRect(minimizeCenterX - 22, centerY - lineHeight / 2,
                 44, lineHeight, lineHeight, lineHeight);
         drawCloseIcon(graphics, closeCenterX, centerY, "close".equals(hoveredTarget));
+        drawUserIcon(graphics, userCenterX, centerY, "user-profile".equals(hoveredTarget));
     }
 
     private void drawCornerMarkers(Graphics2D graphics, PanelUiLayout layout, boolean hovered) {
@@ -91,6 +100,13 @@ final class PanelChrome {
         graphics.setStroke(new BasicStroke(4.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         graphics.drawLine(centerX - 14, centerY - 14, centerX + 14, centerY + 14);
         graphics.drawLine(centerX + 14, centerY - 14, centerX - 14, centerY + 14);
+    }
+
+    private void drawUserIcon(Graphics2D graphics, int centerX, int centerY, boolean hovered) {
+        graphics.setColor(hovered ? new Color(91, 166, 245, 240) : FOREGROUND);
+        graphics.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        graphics.drawOval(centerX - 9, centerY - 18, 18, 18);
+        graphics.drawArc(centerX - 20, centerY + 1, 40, 30, 0, 180);
     }
 
     private void drawNetworkIcon(Graphics2D graphics, int x, int centerY) {

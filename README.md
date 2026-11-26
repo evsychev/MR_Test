@@ -88,6 +88,7 @@ the directory containing `libopenxr_loader.dylib`.
 - `TechnicalObjectTreeUI`: OpenXR ray input routing, pointer gestures, and panel texture updates.
 - `PanelUiLayout`, `PanelChrome`, `SearchField`, `TechnicalObjectTreeView`, `TechnicalObjectDetailsDialog`, and `PanelStatusBar`: GUI layout, shell controls, clipped content, tree scrolling, details, and status display.
 - `SearchKeyboard`: on-panel search keyboard with numeric keys, English/Russian layouts, key hit testing, and rendering.
+- `UserProfile` and `UserProfileDialog`: load the sanitized mock JSON profile and display it in a modal panel.
 - `TechnicalObjectTreeDataSource`: `|~|` feed parsing, hidden-root handling, and technical-object hierarchy construction.
 - `AnchoredWindow`: head-relative window pose, move/resize gestures and controller-ray intersection.
 - `SpatialInputHandler`: OpenXR action bindings and pointer pose spaces.

@@ -19,6 +19,7 @@ final class PanelUiLayout {
     final Rectangle toolbar;
     final Rectangle minimizeButton;
     final Rectangle closeButton;
+    final Rectangle userButton;
     final Rectangle searchField;
     final Rectangle treeViewport;
     final Rectangle scrollTrack;
@@ -35,6 +36,7 @@ final class PanelUiLayout {
         minimizeButton = new Rectangle(buttonX, 18, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
         closeButton = new Rectangle(logicalWidth - buttonX - TOOLBAR_BUTTON_WIDTH,
                 18, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
+        userButton = new Rectangle(logicalWidth / 2 - 38, 18, 76, TOOLBAR_BUTTON_HEIGHT);
         searchField = new Rectangle(38, 236, logicalWidth - 76, 84);
         statusBar = new Rectangle(32, pixelHeight - 64, logicalWidth - 64, 38);
         int treeTop = searchField.y + searchField.height + 24;
@@ -64,6 +66,10 @@ final class PanelUiLayout {
         return minimizeButton.contains(x, y) || closeButton.contains(x, y);
     }
 
+    boolean isUserButton(int x, int y) {
+        return userButton.contains(x, y);
+    }
+
     boolean isMinimizeButtonX(int x) {
         return x >= minimizeButton.x && x <= minimizeButton.x + minimizeButton.width;
     }
@@ -75,7 +81,7 @@ final class PanelUiLayout {
     boolean isToolbarDrag(int x, int y) {
         return toolbar.contains(x, y) && y <= 225
                 && x > CORNER_RESIZE_SIZE && x < logicalWidth - CORNER_RESIZE_SIZE
-                && !isToolbarButton(x, y);
+                && !isToolbarButton(x, y) && !isUserButton(x, y);
     }
 
     boolean isRightResizeCorner(int x) {

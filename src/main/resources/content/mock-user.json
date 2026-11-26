@@ -1,0 +1,157 @@
+{
+  "id": "114b0948-58a0-11f0-adae-a23f019f1d52",
+  "username": "tn\\MTORO-TEST63",
+  "post": "USER",
+  "email": "mtoro-test63@transneft.ru",
+  "ost": "ООО \"Транснефть - Балтика\"",
+  "type": "Bearer",
+  "token": "REDACTED_SAMPLE_TOKEN",
+  "isAdmin": false,
+  "roles": [
+    "ROLE_USER"
+  ],
+  "fileCryptKey": "REDACTED_SAMPLE_FILE_KEY",
+  "bypassPlanStartDateInMinutes": "20160",
+  "bypassPlanEndDateInMinutes": "43200",
+  "serviceRequestDocPlanStartDateInMinutes": "93600",
+  "serviceRequestDocPlanEndDateInMinutes": "93600",
+  "deviationFactEndDateInMinutes": "20160",
+  "rsgPlanStartDateInMinutes": "10080",
+  "rsgPlanEndDateInMinutes": "10080",
+  "rsgPlanStartDateShifting": "1",
+  "rsgPlanEndDateShifting": "1",
+  "updateApkLink": "/api/v1/apk/download",
+  "critical": true,
+  "manualNFCControl": true,
+  "cpVisibility": false,
+  "userInterfaces": {
+    "LookIDPoint": {
+      "name": "Проверка ID метки",
+      "disableMessage": "",
+      "display": true,
+      "active": true
+    },
+    "RatingSystemGrade": {
+      "name": "Планы работ",
+      "disableMessage": "Отсутствует доступ к СРО в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "IndexDefects": {
+      "name": "Отклонения",
+      "disableMessage": "Отсутствует доступ на просмотр и регистрацию отклонений в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "IndexByPass": {
+      "name": "Обходы",
+      "disableMessage": "Отсутствует доступ к заданиям на обход и администрированию NFC-меток в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "FindByNfcQr": {
+      "name": "Поиск по NFC/QR",
+      "disableMessage": "Отсутствует доступ к РТО в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "Favourites": {
+      "name": "Избранное",
+      "disableMessage": "Отсутствует доступ к РТО в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "RatingSystemGradeWeekly": {
+      "name": null,
+      "disableMessage": null,
+      "display": false,
+      "active": null
+    },
+    "BypassAdministration": {
+      "name": "Управление NFC метками",
+      "disableMessage": "",
+      "display": true,
+      "active": true
+    },
+    "NfcRtoWriter": {
+      "name": "Запись кода ТО на NFC",
+      "disableMessage": "",
+      "display": true,
+      "active": true
+    },
+    "BypassHistory": {
+      "name": "История обходов",
+      "disableMessage": "Отсутствует полный доступ к заданиям на обход в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "DefectsRegistrationForm": {
+      "name": "Регистрация отклонений",
+      "disableMessage": "Отсутствует доступ на регистрацию отклонений в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "ZN": {
+      "name": "Заказ-наряды",
+      "disableMessage": "Отсутствует доступ к заказ-нарядам в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "DefectsRegistration": {
+      "name": "Реестр отклонений",
+      "disableMessage": "Отсутствует доступ к отклонениям в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "Bypass": {
+      "name": "Мои обходы",
+      "disableMessage": "Отсутствует полный доступ к заданиям на обход в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "IndexAdminNFS": {
+      "name": "Администрирование NFC",
+      "disableMessage": "",
+      "display": true,
+      "active": true
+    },
+    "IndexRto": {
+      "name": "РТО",
+      "disableMessage": "Отсутствует доступ к РТО в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "RatingSystemGradeMonthly": {
+      "name": "План работ на месяц",
+      "disableMessage": "Функционал находится в разработке. Будет доступен в ближайшее время",
+      "display": true,
+      "active": true
+    },
+    "RtoTree": {
+      "name": "РТО",
+      "disableMessage": "Отсутствует доступ к РТО в КИС ПиКТС",
+      "display": true,
+      "active": true
+    },
+    "RtoSearchScreen": {
+      "name": "Поиск",
+      "disableMessage": "Отсутствует доступ к РТО в КИС ПиКТС",
+      "display": true,
+      "active": true
+    }
+  },
+  "systemMaintenance": null,
+  "allowedClassesForDefects": [
+    "TM_HI00018",
+    "TM_LCH00055",
+    "TM_LCH00054",
+    "TM_LCH00057",
+    "TM_LCH00056"
+  ],
+  "fio": "MTORO-TEST63 MTORO-TEST63 MTORO-TEST63",
+  "NFCScanningFrequency": 1,
+  "employeePost": null,
+  "WorkingShiftDiapason": "8-20_20-8",
+  "userFontSize": null,
+  "functionalKeys": []
+}

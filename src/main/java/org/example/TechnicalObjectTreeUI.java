@@ -45,6 +45,8 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private final SearchField searchField = new SearchField();
     private final PanelStatusBar statusBar = new PanelStatusBar();
     private final TechnicalObjectDetailsDialog detailsDialog = new TechnicalObjectDetailsDialog();
+    private final UserProfileDialog userProfileDialog = new UserProfileDialog();
+    private final UserProfile userProfile = UserProfile.loadMock();
     private final Vector2f activeScrollHit = new Vector2f();
     private final Vector2f leftHit = new Vector2f();
     private final Vector2f rightHit = new Vector2f();
@@ -52,6 +54,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private String selectedId;
     private String hoveredId = "";
     private TechnicalObjectTreeDataSource.TreeNode detailsNode;
+    private boolean userProfileOpen;
     private String lastClickedNodeId;
     private long lastNodeClickNanos;
     private int detailsPage;
@@ -198,7 +201,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private boolean beginGestureAt(int hand, int x, int y, Vector2f panelPoint, AnchoredWindow window) {
-        if (detailsNode != null) {
+        if (detailsNode != null || userProfileOpen) {
             return false;
         }
         // The on-panel keyboard is modal and occupies the lower resize and scrollbar hit zones.
@@ -252,7 +255,15 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private void activateAt(int x, int y, AnchoredWindow window) {
         if (window.minimized()) {
-            if (layout.isMinimizeButtonX(x)) {
+            if (userProfileOpen) {
+                if (x >= logicalWidth - 124 && x <= logicalWidth - 52 && y >= 130 && y <= 202) {
+                    userProfileOpen = false;
+                }
+            } else if (layout.isUserButton(x, y)) {
+                userProfileOpen = true;
+                dirty = true;
+                return;
+            } else if (layout.isMinimizeButtonX(x)) {
                 window.toggleMinimized();
                 detailsNode = null;
             } else if (layout.isCloseButtonX(x)) {
@@ -272,6 +283,21 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
                     && detailsPage + 1 < detailsDialog.pageCount(detailsNode)) {
                 detailsPage++;
             }
+            dirty = true;
+            return;
+        }
+
+        if (userProfileOpen) {
+            if (x >= logicalWidth - 124 && x <= logicalWidth - 52 && y >= 130 && y <= 202) {
+                userProfileOpen = false;
+                dirty = true;
+            }
+            return;
+        }
+
+        if (layout.isUserButton(x, y)) {
+            userProfileOpen = true;
+            LOGGER.info("Opened user profile dialog for username={}", userProfile.value("username"));
             dirty = true;
             return;
         }
@@ -342,6 +368,10 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private String targetAt(int x, int y) {
+        if (userProfileOpen) {
+            return x >= logicalWidth - 124 && x <= logicalWidth - 52 && y >= 130 && y <= 202
+                    ? "profile-close" : "user-profile-dialog";
+        }
         if (detailsNode != null) {
             if (x > logicalWidth - 150 && y < 195) {
                 return "details-close";
@@ -354,7 +384,13 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         if (!lastMinimized && searchKeyboard.occupies(y, pixelHeight)) {
             return searchKeyboard.targetAt(x, y);
         }
+        if (layout.isUserButton(x, y)) {
+            return "user-profile";
+        }
         if (lastMinimized) {
+            if (layout.isUserButton(x, y)) {
+                return "user-profile";
+            }
             return layout.isMinimizeButtonX(x) ? "minimize"
                     : layout.isCloseButtonX(x) ? "close" : "move";
         } else if (isExpandedHeaderButtonHit(x, y)) {
@@ -466,6 +502,9 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
                 drawMinimized(graphics);
             } else {
                 drawWindow(graphics);
+            }
+            if (userProfileOpen) {
+                userProfileDialog.draw(graphics, layout, userProfile, hoveredId);
             }
             graphics.setClip(originalClip);
         } finally {
