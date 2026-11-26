@@ -20,6 +20,7 @@ final class PanelUiLayout {
     final Rectangle minimizeButton;
     final Rectangle closeButton;
     final Rectangle userButton;
+    final Rectangle pageHeading;
     final Rectangle previousPage;
     final Rectangle nextPage;
     final Rectangle searchField;
@@ -39,8 +40,12 @@ final class PanelUiLayout {
         closeButton = new Rectangle(logicalWidth - buttonX - TOOLBAR_BUTTON_WIDTH,
                 18, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
         userButton = new Rectangle(logicalWidth / 2 - 38, 18, 76, TOOLBAR_BUTTON_HEIGHT);
-        previousPage = new Rectangle(38, 152, 64, 64);
-        nextPage = new Rectangle(logicalWidth - 102, 152, 64, 64);
+        int navigationTop = CORNER_RESIZE_SIZE + 1;
+        int navigationButtonSize = toolbar.y + toolbar.height - navigationTop;
+        previousPage = new Rectangle(panel.x, navigationTop, navigationButtonSize, navigationButtonSize);
+        pageHeading = new Rectangle(panel.x + navigationButtonSize, navigationTop,
+                panel.width - 2 * navigationButtonSize, navigationButtonSize);
+        nextPage = new Rectangle(pageHeading.x + pageHeading.width, navigationTop, navigationButtonSize, navigationButtonSize);
         searchField = new Rectangle(38, 236, logicalWidth - 76, 84);
         statusBar = new Rectangle(32, pixelHeight - 64, logicalWidth - 64, 38);
         int treeTop = searchField.y + searchField.height + 24;
@@ -88,7 +93,8 @@ final class PanelUiLayout {
     }
 
     boolean isToolbarDrag(int x, int y) {
-        return toolbar.contains(x, y) && y <= 225
+        if (y >= pageHeading.y) return pageHeading.contains(x, y);
+        return toolbar.contains(x, y)
                 && x > CORNER_RESIZE_SIZE && x < logicalWidth - CORNER_RESIZE_SIZE
                 && !isToolbarButton(x, y) && !isUserButton(x, y);
     }

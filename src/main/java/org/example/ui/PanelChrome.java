@@ -35,8 +35,8 @@ final class PanelChrome {
         graphics.setStroke(new BasicStroke(4.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         if ("move".equals(hoveredTarget)) {
             graphics.setColor(new Color(91, 166, 245, 75));
-            graphics.fillRoundRect(PanelUiLayout.CORNER_RESIZE_SIZE, 134,
-                    layout.logicalWidth - 2 * PanelUiLayout.CORNER_RESIZE_SIZE, 82, 20, 20);
+            graphics.fillRoundRect(layout.pageHeading.x, layout.pageHeading.y,
+                    layout.pageHeading.width, layout.pageHeading.height, 20, 20);
             graphics.setColor(new Color(230, 235, 242, 180));
         }
         int buttonCenterY = layout.minimizeButton.y + layout.minimizeButton.height / 2;
@@ -52,11 +52,20 @@ final class PanelChrome {
         graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 34));
         drawPageArrow(graphics, layout.previousPage, -1, page.step(-1) != page, "previous-page".equals(hoveredTarget));
         drawPageArrow(graphics, layout.nextPage, 1, page.step(1) != page, "next-page".equals(hoveredTarget));
-        int iconWidth = page == PanelPage.TECHNICAL_OBJECTS ? 76 : 0;
-        String title = PanelText.fit(graphics, page.title, layout.nextPage.x - layout.previousPage.x
-                - layout.previousPage.width - iconWidth - 12);
-        int titleX = (layout.logicalWidth - graphics.getFontMetrics().stringWidth(title) + iconWidth) / 2;
-        if (iconWidth > 0) drawNetworkIcon(graphics, titleX - 55, 180);
+        int iconWidth = 68;
+        int iconGap = 20;
+        int textWidth = layout.pageHeading.width - iconWidth - iconGap - 12;
+        int measuredWidth = graphics.getFontMetrics().stringWidth(page.title);
+        if (measuredWidth > textWidth && textWidth > 0) {
+            graphics.setFont(graphics.getFont().deriveFont(34f * textWidth / measuredWidth));
+        }
+        String title = PanelText.fit(graphics, page.title, textWidth);
+        int titleX = (layout.logicalWidth - graphics.getFontMetrics().stringWidth(title) + iconWidth + iconGap) / 2;
+        int iconLeft = titleX - iconGap - iconWidth;
+        switch (page) {
+            case TECHNICAL_OBJECTS -> drawNetworkIcon(graphics, iconLeft + 18, 180);
+            case ROUNDS -> drawRouteIcon(graphics, iconLeft, 180);
+        }
         graphics.setColor(FOREGROUND);
         graphics.drawString(title, titleX, 192);
     }
@@ -65,7 +74,7 @@ final class PanelChrome {
                                boolean enabled, boolean hovered) {
         if (enabled && hovered) {
             graphics.setColor(new Color(91, 166, 245, 105));
-            graphics.fillRoundRect(button.x, button.y, button.width, button.height, 18, 18);
+            graphics.fill(button);
         }
         graphics.setColor(enabled ? FOREGROUND : new Color(185, 195, 205, 90));
         graphics.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -126,6 +135,20 @@ final class PanelChrome {
         graphics.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         graphics.drawOval(centerX - 9, centerY - 18, 18, 18);
         graphics.drawArc(centerX - 20, centerY + 1, 40, 30, 0, 180);
+    }
+
+    private void drawRouteIcon(Graphics2D graphics, int left, int centerY) {
+        graphics.setColor(FOREGROUND);
+        graphics.setStroke(new BasicStroke(3.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int top = centerY - 15;
+        int bottom = centerY + 15;
+        graphics.drawOval(left + 2, top - 5, 10, 10);
+        graphics.drawLine(left + 12, top, left + 41, top);
+        graphics.drawArc(left + 33, top, 16, 15, -90, 180);
+        graphics.drawLine(left + 41, centerY, left + 26, centerY);
+        graphics.drawArc(left + 18, centerY, 16, 15, 90, 180);
+        graphics.drawLine(left + 26, bottom, left + 55, bottom);
+        graphics.fillOval(left + 55, bottom - 5, 11, 11);
     }
 
     private void drawNetworkIcon(Graphics2D graphics, int x, int centerY) {
