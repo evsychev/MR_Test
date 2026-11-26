@@ -34,7 +34,6 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private static final int TREE_TOP = 360;
     private static final int LEFT = 48;
     private static final int INDENT = 42;
-    private static final int KEYBOARD_HEIGHT = 390;
 
     private static final Color FOREGROUND = new Color(235, 240, 245, 242);
     private static final Color SECONDARY = new Color(181, 190, 201, 225);
@@ -48,14 +47,12 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private final ByteBuffer rgbaPixels;
     private final Set<String> expanded = new HashSet<>();
     private final List<TreeRow> visibleRows = new ArrayList<>();
-    private final List<KeyboardKey> keyboardKeys = new ArrayList<>();
+    private final SearchKeyboard searchKeyboard = new SearchKeyboard();
     private final Vector2f leftHit = new Vector2f();
     private final Vector2f rightHit = new Vector2f();
 
     private String selectedId;
     private String hoveredId = "";
-    private String searchText = "";
-    private boolean keyboardVisible;
     private boolean previousLeftSelect;
     private boolean previousRightSelect;
     private int activeGestureHand = -1;
@@ -216,7 +213,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         if (y < 105) {
             if (x < 140) {
                 window.toggleMinimized();
-                keyboardVisible = false;
+                searchKeyboard.hide();
                 dirty = true;
             } else if (x > logicalWidth - 140) {
                 window.closeWindow();
@@ -226,13 +223,13 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         }
 
         if (inside(x, y, 38, 236, logicalWidth - 76, 84)) {
-            keyboardVisible = true;
+            searchKeyboard.show();
             dirty = true;
             return;
         }
 
-        if (keyboardVisible && y >= pixelHeight - KEYBOARD_HEIGHT) {
-            activateKeyboardKey(x, y);
+        if (searchKeyboard.occupies(y, pixelHeight)) {
+            searchKeyboard.activate(x, y);
             dirty = true;
             return;
         }
@@ -254,25 +251,6 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         dirty = true;
     }
 
-    private void activateKeyboardKey(int x, int y) {
-        for (KeyboardKey key : keyboardKeys) {
-            if (inside(x, y, key.x, key.y, key.width, key.height)) {
-                switch (key.action) {
-                    case "BACKSPACE" -> {
-                        if (!searchText.isEmpty()) {
-                            searchText = searchText.substring(0, searchText.length() - 1);
-                        }
-                    }
-                    case "SPACE" -> searchText += " ";
-                    case "CLEAR" -> searchText = "";
-                    case "DONE" -> keyboardVisible = false;
-                    default -> searchText += key.action.toLowerCase(Locale.ROOT);
-                }
-                return;
-            }
-        }
-    }
-
     private String targetAt(int x, int y) {
         if (y < 105) {
             return x < 140 ? "minimize" : x > logicalWidth - 140 ? "close" : "toolbar";
@@ -280,13 +258,8 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         if (inside(x, y, 38, 236, logicalWidth - 76, 84)) {
             return "search";
         }
-        if (keyboardVisible && y >= pixelHeight - KEYBOARD_HEIGHT) {
-            for (KeyboardKey key : keyboardKeys) {
-                if (inside(x, y, key.x, key.y, key.width, key.height)) {
-                    return "key-" + key.action;
-                }
-            }
-            return "keyboard";
+        if (searchKeyboard.occupies(y, pixelHeight)) {
+            return searchKeyboard.targetAt(x, y);
         }
         int rowIndex = (y - TREE_TOP) / ROW_HEIGHT;
         return rowIndex >= 0 && rowIndex < visibleRows.size()
@@ -345,8 +318,8 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
 
         drawSearchField(graphics);
         drawTree(graphics);
-        if (keyboardVisible) {
-            drawKeyboard(graphics);
+        if (searchKeyboard.visible()) {
+            searchKeyboard.draw(graphics, logicalWidth, pixelHeight, hoveredId);
         }
     }
 
@@ -397,6 +370,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     }
 
     private void drawSearchField(Graphics2D graphics) {
+        String searchText = searchKeyboard.text();
         int x = 38;
         int y = 236;
         int width = logicalWidth - 76;
@@ -411,7 +385,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 28));
         graphics.setColor(searchText.isEmpty() ? new Color(202, 209, 217, 145) : FOREGROUND);
         graphics.drawString(searchText.isEmpty() ? "Search objects..." : searchText, x + 82, y + 53);
-        if (keyboardVisible) {
+        if (searchKeyboard.visible()) {
             graphics.setColor(ACCENT);
             graphics.fillRoundRect(x + 80 + graphics.getFontMetrics().stringWidth(searchText) + 4,
                     y + 30, 3, 28, 3, 3);
@@ -420,7 +394,7 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
 
     private void drawTree(Graphics2D graphics) {
         visibleRows.clear();
-        String query = searchText.strip().toLowerCase(Locale.ROOT);
+        String query = searchKeyboard.text().strip().toLowerCase(Locale.ROOT);
         for (TechnicalObjectTreeDataSource.TreeNode root : roots) {
             appendVisibleRows(root, 0, query);
         }
@@ -594,64 +568,6 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
         }
     }
 
-    private void drawKeyboard(Graphics2D graphics) {
-        int panelY = pixelHeight - KEYBOARD_HEIGHT;
-        graphics.setColor(new Color(29, 32, 36, 232));
-        graphics.fillRoundRect(20, panelY, logicalWidth - 40, KEYBOARD_HEIGHT - 20, 22, 22);
-        graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 23));
-        graphics.setColor(new Color(220, 228, 237, 215));
-        graphics.drawString("Search", 42, panelY + 34);
-
-        keyboardKeys.clear();
-        String[] rows = {"QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
-        int keyHeight = 58;
-        int gap = 8;
-        int contentWidth = logicalWidth - 80;
-        int y = panelY + 48;
-        for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-            String row = rows[rowIndex];
-            int keyWidth = Math.min(80, (contentWidth - gap * (row.length() - 1)) / row.length());
-            int rowWidth = row.length() * keyWidth + (row.length() - 1) * gap;
-            int x = (logicalWidth - rowWidth) / 2;
-            if (rowIndex == 1) {
-                x += keyWidth / 2;
-            }
-            if (rowIndex == 2) {
-                x += keyWidth / 2;
-            }
-            for (int keyIndex = 0; keyIndex < row.length(); keyIndex++) {
-                addKeyboardKey(graphics, row.substring(keyIndex, keyIndex + 1),
-                        x + keyIndex * (keyWidth + gap), y + rowIndex * (keyHeight + 9),
-                        keyWidth, keyHeight);
-            }
-        }
-        int actionY = y + rows.length * (keyHeight + 9) - 4;
-        int actionGap = 10;
-        int spaceWidth = 360;
-        int smallWidth = (contentWidth - spaceWidth - actionGap * 2) / 2;
-        int x = (logicalWidth - (spaceWidth + smallWidth * 2 + actionGap * 2)) / 2;
-        addKeyboardKey(graphics, "SPACE", x, actionY, spaceWidth, 58);
-        addKeyboardKey(graphics, "CLEAR", x + spaceWidth + actionGap, actionY, smallWidth, 58);
-        addKeyboardKey(graphics, "DONE", x + spaceWidth + actionGap + smallWidth + actionGap,
-                actionY, smallWidth, 58);
-        addKeyboardKey(graphics, "BACKSPACE", logicalWidth - 140, y + 2 * (keyHeight + 9),
-                74, keyHeight);
-    }
-
-    private void addKeyboardKey(Graphics2D graphics, String action, int x, int y, int width, int height) {
-        KeyboardKey key = new KeyboardKey(action, x, y, width, height);
-        keyboardKeys.add(key);
-        boolean isHovered = ("key-" + action).equals(hoveredId);
-        graphics.setColor(isHovered ? new Color(73, 139, 213, 220) : new Color(74, 80, 88, 215));
-        graphics.fillRoundRect(x, y, width, height, 12, 12);
-        graphics.setColor(new Color(230, 236, 243, 200));
-        graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, action.length() > 1 ? 18 : 25));
-        String label = action.equals("BACKSPACE") ? "⌫" : action;
-        int labelWidth = graphics.getFontMetrics().stringWidth(label);
-        graphics.drawString(label, x + (width - labelWidth) / 2,
-                y + (height + graphics.getFontMetrics().getAscent()) / 2 - 4);
-    }
-
     private static boolean inside(int x, int y, int left, int top, int width, int height) {
         return x >= left && x <= left + width && y >= top && y <= top + height;
     }
@@ -664,6 +580,4 @@ final class TechnicalObjectTreeUI implements AutoCloseable {
     private record TreeRow(TechnicalObjectTreeDataSource.TreeNode node, int depth, boolean hasChildren, boolean expanded) {
     }
 
-    private record KeyboardKey(String action, int x, int y, int width, int height) {
-    }
 }

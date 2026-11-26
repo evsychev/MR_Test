@@ -79,6 +79,7 @@ the directory containing `libopenxr_loader.dylib`.
 - `OpenXrFrameLoop`: frame timing, view location, input, swapchain rendering and layer submission.
 - `VulkanPanelRenderer`: swapchain image views, stereo render pass and virtual panel.
 - `TechnicalObjectTreeUI`: panel painting, search, selection and ray-based widget interaction.
+- `SearchKeyboard`: on-panel search keyboard state, key hit testing and rendering.
 - `TechnicalObjectTreeDataSource`: CSV parsing and technical-object hierarchy construction.
 - `AnchoredWindow`: head-relative window pose, move/resize gestures and controller-ray intersection.
 - `SpatialInputHandler`: OpenXR action bindings and pointer pose spaces.
