@@ -40,10 +40,10 @@ In IntelliJ, use the same paths in the run configuration. Set
 `--enable-native-access=ALL-UNNAMED` to VM options for Java 25.
 
 When startup succeeds, the application creates a Vulkan-backed OpenXR session,
-enters the stereo frame loop, submits a transparent projection layer, and starts
+enters the stereo frame loop, submits a head-relative quad layer, and starts
 `XR_FB_passthrough` when the runtime advertises it. The renderer displays a
 small stereoscopic application window in the upper-left area. The window follows
-the user's head with an adjustable offset that persists for the current session.
+the user's head with an adjustable offset saved for the active profile.
 Use Select on its header to move it, on the corner markers to resize it, and on
 the header controls to minimize, restore, or close it.
 
@@ -54,9 +54,9 @@ links use `rtoParent`; records whose parent is absent from the supplied data are
 shown as top-level items. Double-click a tree item to open its paged details
 window.
 
-The window only tests controller rays against its own button. It does not use
-room geometry for collision or alter the physical scene. This session-local
-anchor is not persisted across application sessions.
+Controller rays interact with the panel in its own coordinate system. Window size,
+head-relative offset, minimized state, tree expansion, selection and scroll offset
+are restored from the active profile’s local settings.
 
 The application creates left and right OpenXR actions for controller selection
 and pointer poses. It binds the Khronos simple-controller profile and Oculus
@@ -79,22 +79,19 @@ texture, and returned 25 local spatial entities including a triangle mesh. If
 the OpenXR loader is installed elsewhere, replace `org.lwjgl.librarypath` with
 the directory containing `libopenxr_loader.dylib`.
 
-## Engine components
+## Code layout
 
-- `Main`: application entry point, runtime discovery, extension negotiation and error reporting.
-- `OpenXrSessionRuntime`: Vulkan/OpenXR session resources, lifecycle events and cleanup.
-- `OpenXrFrameLoop`: frame timing, view location, input, swapchain rendering and layer submission.
-- `VulkanPanelRenderer`: swapchain image views, stereo render pass and virtual panel.
-- `TechnicalObjectTreeUI`: OpenXR ray input routing, pointer gestures, and panel texture updates.
-- `PanelUiLayout`, `PanelChrome`, `SearchField`, `TechnicalObjectTreeView`, `TechnicalObjectDetailsDialog`, and `PanelStatusBar`: GUI layout, shell controls, clipped content, tree scrolling, details, and status display.
-- `SearchKeyboard`: on-panel search keyboard with numeric keys, English/Russian layouts, key hit testing, and rendering.
-- `UserProfile` and `UserProfileDialog`: load the sanitized mock JSON profile and display it in a modal panel.
-- `UserStateRepository`: persist per-profile window and tree state in `~/.mr-test/state.db` using SQLite.
-- `TechnicalObjectTreeDataSource`: `|~|` feed parsing, hidden-root handling, and technical-object hierarchy construction.
-- `AnchoredWindow`: head-relative window pose, move/resize gestures and controller-ray intersection.
-- `SpatialInputHandler`: OpenXR action bindings and pointer pose spaces.
-- `SpatialMeshService`: local spatial entity query, triangle mesh loading and controller proximity.
-- `ConsoleLogRedirector`: routes standard output and error through SLF4J/Logback.
+The Maven and IntelliJ entry point is `org.example.Main`. Packages under `org.example` own the following responsibilities.
 
-OpenXR lifecycle calls run on the application thread. Mesh data is copied into
-Java-owned arrays before use so no stack-backed native buffer escapes its scope.
+| Package | Responsibility |
+| --- | --- |
+| `xr` | Runtime discovery, Vulkan device negotiation, session lifecycle, input actions, spatial meshes, passthrough and composition |
+| `render` | Vulkan pipeline, swapchain framebuffers and panel texture uploads |
+| `ui` | Head-relative window geometry, pointer routing, panel controls and Java2D drawing |
+| `tree` | CSV format, object hierarchy, expansion and filtered rows |
+| `profile` | User identity and profile fields from the bundled JSON |
+| `state` | Profile-scoped SQLite settings in `~/.mr-test/state.db` |
+| `logging` | Standard stream redirection to SLF4J/Logback |
+
+Run `mvn clean verify` with JDK 25 to compile, exercise the panel and storage regressions,
+and package the application. Tests use temporary SQLite databases and headless panel rendering.
